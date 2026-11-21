@@ -6,18 +6,18 @@ extends EditorPlugin
 ## No autoloads: a server holding every player's inventory and a client predicting its own
 ## are two managers in one process, and one of them is authoritative and the other is not.
 
-const _ICON := "res://addons/dot_inventory/icon_placeholder.svg"
+const _ICON := "res://addons/gs_inventory/icon_placeholder.svg"
 
 const _TYPES := [
 	[
 		"GSInvManager",
 		"Node",
-		"res://addons/dot_inventory/runtime/dot_inv_manager.gd",
+		"res://addons/gs_inventory/runtime/gs_inv_manager.gd",
 	],
 	[
 		"GSInvPanel",
 		"Control",
-		"res://addons/dot_inventory/runtime/dot_inv_panel.gd",
+		"res://addons/gs_inventory/runtime/gs_inv_panel.gd",
 	],
 ]
 

@@ -1,6 +1,6 @@
 extends "res://examples/selftest/inventory_basics.gd"
 
-## Exercises dot-inventory with no interface and no transport.
+## Exercises gs-inventory with no interface and no transport.
 ##
 ## The checks worth having are the ones about what a server must refuse: a move that does
 ## not fit, a bag put inside itself, a split that is really a move, a weight cap, and a
@@ -23,7 +23,7 @@ func _ready() -> void:
 
 
 func _run() -> void:
-	_line("dot-inventory self-test")
+	_line("gs-inventory self-test")
 	_line("")
 
 	_test_items()
@@ -203,7 +203,7 @@ func _test_rollback() -> void:
 # --- 8 ----------------------------------------------------------------------
 
 func _test_query_and_loadout() -> void:
-	_section("Filtering is the client's, and dot-loadout is one file away")
+	_section("Filtering is the client's, and gs-loadout is one file away")
 
 	var m := _manager()
 	m.apply(GSInvOp.add(&"rifle", 1, &"backpack"))
@@ -413,17 +413,17 @@ func _done_panel() -> void:
 
 # --- 10 ---------------------------------------------------------------------
 
-const REAL_LOADOUT := "res://addons/dot_loadout/core/dot_loadout.gd"
-const REAL_LOADOUT_MANAGER := "res://addons/dot_loadout/dot_loadout_manager.gd"
+const REAL_LOADOUT := "res://addons/gs_loadout/core/gs_loadout.gd"
+const REAL_LOADOUT_MANAGER := "res://addons/gs_loadout/gs_loadout_manager.gd"
 
 
 ## Against GameSpice Loadout itself, linked into this project for the test (see .gitignore),
 ## and reached by path so that nothing here names a class this addon cannot depend on.
 func _test_the_real_loadout() -> void:
-	_section("The link speaks the real dot-loadout, not a fake of itself")
+	_section("The link speaks the real gs-loadout, not a fake of itself")
 
 	var linked := ResourceLoader.exists(REAL_LOADOUT)
-	_check(linked, "dot-loadout is linked (ln -s ../../dot-loadout/addons/dot_loadout addons/)")
+	_check(linked, "gs-loadout is linked (ln -s ../../gs-loadout/addons/gs_loadout addons/)")
 	if not linked:
 		return
 

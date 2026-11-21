@@ -4,11 +4,11 @@ An inventory as a document a server validates, mutated only by ops it can refuse
 
 Read the family [CLAUDE.md](../../CLAUDE.md) first; this file is only what is specific to inventories.
 
-**The distributable is `addons/dot_inventory/`.** It requires [GameSpice Core](../dot-core) and nothing else. dot-loadout is linked only so the self-test can run `GSInvLoadoutLink` against the real document; the addon never names it.
+**The distributable is `addons/gs_inventory/`.** It requires [GameSpice Core](../gs-core) and nothing else. gs-loadout is linked only so the self-test can run `GSInvLoadoutLink` against the real document; the addon never names it.
 
 ```bash
-ln -s ../../dot-core/addons/dot_core addons/dot_core
-ln -s ../../dot-loadout/addons/dot_loadout addons/dot_loadout   # the self-test only
+ln -s ../../gs-core/addons/gs_core addons/gs_core
+ln -s ../../gs-loadout/addons/gs_loadout addons/gs_loadout   # the self-test only
 ```
 
 ## Read before
@@ -22,18 +22,18 @@ ln -s ../../dot-loadout/addons/dot_loadout addons/dot_loadout   # the self-test 
 
 | Path | What |
 | --- | --- |
-| `core/dot_inv_item.gd` | `GSInvItem`: what a thing is. A document with a translation key, not a name |
-| `core/dot_inv_catalogue.gd` | `GSInvCatalogue`: items and container shapes. Validates with no icons and no meshes |
-| `core/dot_inv_container.gd` | `GSInvContainer`: a grid or a list of slots (only the geometry differs) |
-| `core/dot_inv_doc.gd` | `GSInvDoc`: several containers, the parent links, the depth bound and the cycle test |
-| `core/dot_inv_op.gd` | `GSInvOp`: one mutation. The wire format, the undo record and the refusal unit |
-| `core/dot_inv_query.gd` | `GSInvQuery`: filtering and sorting, locally |
-| `core/dot_inv_loadout_link.gd` | `GSInvLoadoutLink`: the only file that knows GameSpice Loadout exists |
-| `runtime/dot_inv_manager.gd` | `GSInvManager`: validates, applies, snapshots, predicts, rolls back, lands a server's op underneath the predictions |
-| `runtime/dot_inv_panel.gd` | `GSInvPanel`: a grid with native drag-and-drop; asks `validate` before a cell lights up |
+| `core/gs_inv_item.gd` | `GSInvItem`: what a thing is. A document with a translation key, not a name |
+| `core/gs_inv_catalogue.gd` | `GSInvCatalogue`: items and container shapes. Validates with no icons and no meshes |
+| `core/gs_inv_container.gd` | `GSInvContainer`: a grid or a list of slots (only the geometry differs) |
+| `core/gs_inv_doc.gd` | `GSInvDoc`: several containers, the parent links, the depth bound and the cycle test |
+| `core/gs_inv_op.gd` | `GSInvOp`: one mutation. The wire format, the undo record and the refusal unit |
+| `core/gs_inv_query.gd` | `GSInvQuery`: filtering and sorting, locally |
+| `core/gs_inv_loadout_link.gd` | `GSInvLoadoutLink`: the only file that knows GameSpice Loadout exists |
+| `runtime/gs_inv_manager.gd` | `GSInvManager`: validates, applies, snapshots, predicts, rolls back, lands a server's op underneath the predictions |
+| `runtime/gs_inv_panel.gd` | `GSInvPanel`: a grid with native drag-and-drop; asks `validate` before a cell lights up |
 | `examples/inventory_selftest.tscn` | the suite; the GameSpice Loadout section needs GameSpice Loadout linked |
 
-Paths under `core/` and `runtime/` are in `addons/dot_inventory/`.
+Paths under `core/` and `runtime/` are in `addons/gs_inventory/`.
 
 ## Running and testing
 

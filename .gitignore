@@ -4,10 +4,10 @@
 
 # Sibling repositories, linked for local development:
 #   ln -s ../../<repo>/addons/<addon> addons/<addon>
-# dot-core is the one dependency. dot-loadout is linked only so the self-test can run
+# gs-core is the one dependency. gs-loadout is linked only so the self-test can run
 # GSInvLoadoutLink against the real document; the addon itself never names it.
-/addons/dot_core
-/addons/dot_loadout
+/addons/gs_core
+/addons/gs_loadout
 
 # Exports
 build/

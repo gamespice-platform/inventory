@@ -6,7 +6,7 @@ Part of the [**GameSpice**](https://gamespice.net) collection: modular, MIT-lice
 
 ## Install
 
-Copy `addons/dot_inventory/` and [GameSpice Core](https://github.com/gamespice-platform/core)'s `addons/dot_core/` into your project and enable dot-inventory in **Project > Project Settings > Plugins**. dot-core is the only dependency. dot-loadout and dot-ui are optional and are reached by name at runtime.
+Copy `addons/gs_inventory/` and [GameSpice Core](https://github.com/gamespice-platform/core)'s `addons/gs_core/` into your project and enable gs-inventory in **Project > Project Settings > Plugins**. gs-core is the only dependency. gs-loadout and gs-ui are optional and are reached by name at runtime.
 
 ## Use
 

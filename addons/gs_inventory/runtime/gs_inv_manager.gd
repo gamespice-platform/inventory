@@ -20,7 +20,7 @@ extends Node
 ## from "this rifle was destroyed and an identical one appeared", and one of those is a
 ## duplication exploit.
 
-const SERVICE := &"dot_inventory"
+const SERVICE := &"gs_inventory"
 const CHANNEL := "inventory"
 
 ## An op was applied. The only signal a view needs.
@@ -768,7 +768,7 @@ func describe() -> Dictionary:
 
 func describe_lines() -> PackedStringArray:
 	var out := PackedStringArray()
-	out.append("dot-inventory %s" % ("authoritative" if authoritative else "predicting"))
+	out.append("gs-inventory %s" % ("authoritative" if authoritative else "predicting"))
 	if not _pending.is_empty():
 		out.append("  %d ops awaiting an answer" % _pending.size())
 	if doc != null:

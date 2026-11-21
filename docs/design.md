@@ -18,7 +18,7 @@ Building one on the other would mean either a loadout that has to be re-validate
 
 ### The link takes one player's `GSLoadout`, not the `GSLoadoutManager`
 
-It reads `filled_slots()` / `item_in()` / `count_in()` and writes `clear_slot()`, which are the document's real methods. The game gets the document from `await manager.active_for(key)` (a copy of it, since the manager caches the original) and hands the edited copy to `manager.publish`, which stays dot-loadout's trust boundary. Only removal crosses back: which slot a new item belongs in is the schema's question. The self-test's dot-loadout section runs against the real dot-loadout, linked for the test the way dot-team links dot-spectate, and reached by path so the addon still names nothing.
+It reads `filled_slots()` / `item_in()` / `count_in()` and writes `clear_slot()`, which are the document's real methods. The game gets the document from `await manager.active_for(key)` (a copy of it, since the manager caches the original) and hands the edited copy to `manager.publish`, which stays gs-loadout's trust boundary. Only removal crosses back: which slot a new item belongs in is the schema's question. The self-test's gs-loadout section runs against the real gs-loadout, linked for the test the way gs-team links gs-spectate, and reached by path so the addon still names nothing.
 
 ## Every mutation is an op
 
