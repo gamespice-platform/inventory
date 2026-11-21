@@ -11,7 +11,7 @@ Copy `addons/dot_inventory/` and [GameSpice Core](https://github.com/gamespice-p
 ## Use
 
 ```gdscript
-inv.apply(DotInvOp.move(&"backpack", uid, &"belt", Vector2i(0, 0)))
+inv.apply(GSInvOp.move(&"backpack", uid, &"belt", Vector2i(0, 0)))
 ```
 
 A client sends an op and the server answers yes or no. Sending state instead would make the server guess what the player did by comparing two documents, and "the rifle moved" looks the same as "the rifle vanished and an identical one appeared". Ops also give you undo, refusing one move out of ten without the other nine snapping back, and prediction.
@@ -44,11 +44,11 @@ inv.apply_authoritative(server_op)   # a change the server made: a purchase, a r
 | Sorting | Ties break on the id, because Godot's `sort_custom` is not stable. |
 | Filtering and sorting | Done by the client. The server owns the contents. |
 
-`DotInvPanel` is a code-built grid using Godot's own drag and drop. Its `_can_drop_data` calls `manager.validate(op)`, so the screen never accepts a move the server will refuse.
+`GSInvPanel` is a code-built grid using Godot's own drag and drop. Its `_can_drop_data` calls `manager.validate(op)`, so the screen never accepts a move the server will refuse.
 
 ## With Loadout
 
-`DotInvLoadoutLink` connects the two without either needing the other. `fill_from_loadout` pours a player's `DotLoadout` into a container at match start, and `publish_to_loadout` clears the slots whose items did not survive. Nothing is automatic, because whether a round's inventory is kept is a game design choice. GameSpice Loadout holds what a player owns and brought in; GameSpice Inventory holds what is in the bag right now.
+`GSInvLoadoutLink` connects the two without either needing the other. `fill_from_loadout` pours a player's `GSLoadout` into a container at match start, and `publish_to_loadout` clears the slots whose items did not survive. Nothing is automatic, because whether a round's inventory is kept is a game design choice. GameSpice Loadout holds what a player owns and brought in; GameSpice Inventory holds what is in the bag right now.
 
 ## Test
 

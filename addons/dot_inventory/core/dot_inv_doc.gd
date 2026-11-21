@@ -1,4 +1,4 @@
-class_name DotInvDoc
+class_name GSInvDoc
 extends RefCounted
 
 ## A whole inventory: several containers, some of them inside items in the others.
@@ -13,10 +13,10 @@ extends RefCounted
 ## rather than after: a cycle that has been created cannot be detected by anything that has
 ## to traverse the structure to look for it.
 
-# No log channel: a value object. can_nest() and adopt() return a DotResult, and
-# DotInvManager -- which knows the player and the op -- logs the refusal at DEBUG.
+# No log channel: a value object. can_nest() and adopt() return a GSResult, and
+# GSInvManager -- which knows the player and the op -- logs the refusal at DEBUG.
 
-## container id -> [DotInvContainer].
+## container id -> [GSInvContainer].
 var containers: Dictionary = {}
 
 ## The container id a child container hangs off, and which entry holds it.
@@ -29,11 +29,11 @@ var max_depth: int = 3
 var _next_child := 1
 
 
-func add_container(c: DotInvContainer) -> void:
+func add_container(c: GSInvContainer) -> void:
 	containers[c.id] = c
 
 
-func get_container(id: StringName) -> DotInvContainer:
+func get_container(id: StringName) -> GSInvContainer:
 	return containers.get(id)
 
 
@@ -43,25 +43,25 @@ func has_container(id: StringName) -> bool:
 
 ## Creates a container for an item that is one, and records who holds it.
 func open_container(
-	parent_id: StringName, uid: int, definition: Dictionary, catalogue: DotInvCatalogue
-) -> DotResult:
+	parent_id: StringName, uid: int, definition: Dictionary, catalogue: GSInvCatalogue
+) -> GSResult:
 	var depth := depth_of(parent_id) + 1
 	if max_depth > 0 and depth > max_depth:
-		return DotResult.fail(
-			DotError.CODE_FORBIDDEN,
+		return GSResult.fail(
+			GSError.CODE_FORBIDDEN,
 			"a container %d deep, and %d is the limit" % [depth, max_depth],
 			"unbounded nesting is a save file whose size is the player's patience"
 		)
 	var child_id := StringName("%s#%d" % [parent_id, _next_child])
 	_next_child += 1
-	var c := DotInvContainer.from_definition(child_id, definition)
+	var c := GSInvContainer.from_definition(child_id, definition)
 	add_container(c)
 	parents[child_id] = {"parent": parent_id, "uid": uid}
-	var entry: Dictionary = (containers[parent_id] as DotInvContainer).entries.get(uid, {})
+	var entry: Dictionary = (containers[parent_id] as GSInvContainer).entries.get(uid, {})
 	entry["child"] = String(child_id)
 	if catalogue != null:
 		pass
-	return DotResult.success(child_id)
+	return GSResult.success(child_id)
 
 
 func depth_of(id: StringName) -> int:
@@ -79,10 +79,10 @@ func depth_of(id: StringName) -> int:
 ##
 ## Called before the move. A cycle that has already been created cannot be found by
 ## anything that traverses the structure looking for one — that traversal is the hang.
-func can_nest(child: StringName, into: StringName) -> DotResult:
+func can_nest(child: StringName, into: StringName) -> GSResult:
 	if child == into:
-		return DotResult.fail(
-			DotError.CODE_FORBIDDEN, "a container cannot be put inside itself"
+		return GSResult.fail(
+			GSError.CODE_FORBIDDEN, "a container cannot be put inside itself"
 		)
 	# Walk up from the destination. If the child is anywhere above it, putting the child
 	# in would close the loop.
@@ -90,28 +90,28 @@ func can_nest(child: StringName, into: StringName) -> DotResult:
 	var guard := 0
 	while parents.has(at) and guard < 64:
 		if at == child:
-			return DotResult.fail(
-				DotError.CODE_FORBIDDEN,
+			return GSResult.fail(
+				GSError.CODE_FORBIDDEN,
 				"'%s' is already inside '%s'" % [into, child],
 				"putting it in would make a loop, and every traversal of a loop is a hang"
 			)
 		at = StringName(str((parents[at] as Dictionary).get("parent", "")))
 		guard += 1
 	if max_depth > 0 and depth_of(into) + 1 > max_depth:
-		return DotResult.fail(
-			DotError.CODE_FORBIDDEN, "that would be %d containers deep" % (depth_of(into) + 1)
+		return GSResult.fail(
+			GSError.CODE_FORBIDDEN, "that would be %d containers deep" % (depth_of(into) + 1)
 		)
-	return DotResult.success(null)
+	return GSResult.success(null)
 
 
 ## The weight of a container and everything under it.
 func weight_of(id: StringName) -> float:
-	var c: DotInvContainer = containers.get(id)
+	var c: GSInvContainer = containers.get(id)
 	return 0.0 if c == null else c.total_weight(_catalogue, self)
 
 
 ## Set by the manager so [method weight_of] can be called recursively from a container.
-var _catalogue: DotInvCatalogue = null
+var _catalogue: GSInvCatalogue = null
 
 
 ## Every container, root first, then the ones inside it.
@@ -135,14 +135,14 @@ func ordered_ids() -> Array[StringName]:
 func count_of(item_id: StringName) -> int:
 	var n := 0
 	for id in containers.keys():
-		n += (containers[id] as DotInvContainer).count_of(item_id)
+		n += (containers[id] as GSInvContainer).count_of(item_id)
 	return n
 
 
 func to_dictionary() -> Dictionary:
 	var out := {}
 	for id in containers.keys():
-		out[String(id)] = (containers[id] as DotInvContainer).to_dictionary()
+		out[String(id)] = (containers[id] as GSInvContainer).to_dictionary()
 	var parent_map := {}
 	for id in parents.keys():
 		parent_map[String(id)] = {
@@ -157,10 +157,10 @@ func to_dictionary() -> Dictionary:
 	}
 
 
-func adopt(d: Dictionary, catalogue: DotInvCatalogue) -> DotResult:
+func adopt(d: Dictionary, catalogue: GSInvCatalogue) -> GSResult:
 	if int(d.get("max_depth", 3)) < 0:
-		return DotResult.fail(
-			DotError.CODE_INVALID, "max_depth %d is negative" % int(d.get("max_depth", 3)),
+		return GSResult.fail(
+			GSError.CODE_INVALID, "max_depth %d is negative" % int(d.get("max_depth", 3)),
 			"use 0 for unlimited"
 		)
 	containers.clear()
@@ -172,12 +172,12 @@ func adopt(d: Dictionary, catalogue: DotInvCatalogue) -> DotResult:
 	var raw: Dictionary = d.get("containers", {})
 	for key in raw.keys():
 		var cd: Dictionary = raw[key]
-		var c := DotInvContainer.new()
+		var c := GSInvContainer.new()
 		c.id = StringName(str(key))
 		c.shape = (
-			DotInvContainer.Shape.SLOTS
+			GSInvContainer.Shape.SLOTS
 			if str(cd.get("shape", "grid")) == "slots"
-			else DotInvContainer.Shape.GRID
+			else GSInvContainer.Shape.GRID
 		)
 		# The shape's numbers come back from the catalogue rather than from the document.
 		# A stored width is a stored copy of a declaration, and the two go out of step the
@@ -185,7 +185,7 @@ func adopt(d: Dictionary, catalogue: DotInvCatalogue) -> DotResult:
 		# keeping the old size and nothing saying so.
 		var def := catalogue.container(_definition_id_of(StringName(str(key))))
 		if not def.is_empty():
-			var fresh := DotInvContainer.from_definition(StringName(str(key)), def)
+			var fresh := GSInvContainer.from_definition(StringName(str(key)), def)
 			c.width = fresh.width
 			c.height = fresh.height
 			c.slots = fresh.slots
@@ -201,7 +201,7 @@ func adopt(d: Dictionary, catalogue: DotInvCatalogue) -> DotResult:
 			"parent": StringName(str(pm[key].get("parent", ""))),
 			"uid": int(pm[key].get("uid", 0)),
 		}
-	return DotResult.success(null)
+	return GSResult.success(null)
 
 
 ## A nested container's id is `<parent>#<n>`; the definition it came from is the item's.
@@ -211,11 +211,11 @@ func _definition_id_of(id: StringName) -> StringName:
 	return StringName(s if cut < 0 else s.substr(0, cut))
 
 
-func describe_lines(catalogue: DotInvCatalogue) -> PackedStringArray:
+func describe_lines(catalogue: GSInvCatalogue) -> PackedStringArray:
 	var out := PackedStringArray()
 	out.append("inventory: %d containers, depth limit %s" % [containers.size(), str(max_depth) if max_depth > 0 else "none"])
 	for id in ordered_ids():
 		var prefix := "  " + "  ".repeat(depth_of(id))
-		for line in (containers[id] as DotInvContainer).describe_lines(catalogue):
+		for line in (containers[id] as GSInvContainer).describe_lines(catalogue):
 			out.append(prefix + line)
 	return out

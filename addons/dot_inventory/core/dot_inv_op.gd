@@ -1,5 +1,5 @@
 @tool
-class_name DotInvOp
+class_name GSInvOp
 extends RefCounted
 
 ## One mutation. Everything that changes an inventory is one of these.
@@ -74,8 +74,8 @@ var actor: StringName = &""
 
 static func move(
 	from_c: StringName, uid: int, to_c: StringName, cell: Vector2i, rotated: bool = false
-) -> DotInvOp:
-	var o := DotInvOp.new()
+) -> GSInvOp:
+	var o := GSInvOp.new()
 	o.kind = Kind.MOVE
 	o.from_container = from_c
 	o.from_uid = uid
@@ -85,8 +85,8 @@ static func move(
 	return o
 
 
-static func split(from_c: StringName, uid: int, n: int, cell: Vector2i) -> DotInvOp:
-	var o := DotInvOp.new()
+static func split(from_c: StringName, uid: int, n: int, cell: Vector2i) -> GSInvOp:
+	var o := GSInvOp.new()
 	o.kind = Kind.SPLIT
 	o.from_container = from_c
 	o.from_uid = uid
@@ -96,8 +96,8 @@ static func split(from_c: StringName, uid: int, n: int, cell: Vector2i) -> DotIn
 	return o
 
 
-static func merge(from_c: StringName, uid: int, to_c: StringName, target_uid: int) -> DotInvOp:
-	var o := DotInvOp.new()
+static func merge(from_c: StringName, uid: int, to_c: StringName, target_uid: int) -> GSInvOp:
+	var o := GSInvOp.new()
 	o.kind = Kind.MERGE
 	o.from_container = from_c
 	o.from_uid = uid
@@ -106,8 +106,8 @@ static func merge(from_c: StringName, uid: int, to_c: StringName, target_uid: in
 	return o
 
 
-static func add(item_id: StringName, n: int, to_c: StringName) -> DotInvOp:
-	var o := DotInvOp.new()
+static func add(item_id: StringName, n: int, to_c: StringName) -> GSInvOp:
+	var o := GSInvOp.new()
 	o.kind = Kind.ADD
 	o.item = item_id
 	o.count = n
@@ -116,8 +116,8 @@ static func add(item_id: StringName, n: int, to_c: StringName) -> DotInvOp:
 	return o
 
 
-static func drop(from_c: StringName, uid: int, n: int = 0) -> DotInvOp:
-	var o := DotInvOp.new()
+static func drop(from_c: StringName, uid: int, n: int = 0) -> GSInvOp:
+	var o := GSInvOp.new()
 	o.kind = Kind.DROP
 	o.from_container = from_c
 	o.from_uid = uid
@@ -125,8 +125,8 @@ static func drop(from_c: StringName, uid: int, n: int = 0) -> DotInvOp:
 	return o
 
 
-static func use(from_c: StringName, uid: int, n: int = 1) -> DotInvOp:
-	var o := DotInvOp.new()
+static func use(from_c: StringName, uid: int, n: int = 1) -> GSInvOp:
+	var o := GSInvOp.new()
 	o.kind = Kind.USE
 	o.from_container = from_c
 	o.from_uid = uid
@@ -153,8 +153,8 @@ func to_dictionary() -> Dictionary:
 	}
 
 
-static func from_dictionary(d: Dictionary) -> DotInvOp:
-	var o := DotInvOp.new()
+static func from_dictionary(d: Dictionary) -> GSInvOp:
+	var o := GSInvOp.new()
 	o.kind = int(d.get("kind", Kind.MOVE)) as Kind
 	o.from_container = StringName(str(d.get("from", "")))
 	o.from_uid = int(d.get("from_uid", 0))

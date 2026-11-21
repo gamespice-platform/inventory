@@ -1,10 +1,10 @@
 @tool
-class_name DotInvItem
+class_name GSInvItem
 extends Resource
 
 ## What an item is: a document of ids and numbers, with no content in it.
 ##
-## Named [code]DotInvItem[/code] rather than [code]DotItem[/code] because GameSpice Loadout
+## Named [code]GSInvItem[/code] rather than [code]GSItem[/code] because GameSpice Loadout
 ## already has that name and [code]class_name[/code] is global in Godot — these install
 ## side by side. The collision is a symptom of something real, though, and it is worth
 ## being explicit about the division:
@@ -15,7 +15,7 @@ extends Resource
 ## seconds, it has a shape, things stack in it, and the server has to be able to refuse
 ## one move without refusing the document.
 ##
-## They meet in exactly one file, [DotInvLoadoutLink], which is the same arrangement
+## They meet in exactly one file, [GSInvLoadoutLink], which is the same arrangement
 ## GameSpice NPC AI has with GameSpice NPC: only one file in it names the other.
 
 enum Kind {
@@ -82,32 +82,32 @@ enum Kind {
 ## it in every container -- so a game that writes into [code]item.meta[/code] to remember
 ## something about one rifle has written it onto every rifle in the world, and nothing
 ## errors. This family has paid for that aliasing four times, most expensively in
-## [code]DotLeaderboardDef.scoped()[/code], where every board on a server ended up with the
+## [code]GSLeaderboardDef.scoped()[/code], where every board on a server ended up with the
 ## last scope anybody asked for.
 @export var meta: Dictionary = {}
 
 
-func validate() -> DotResult:
+func validate() -> GSResult:
 	if id == &"":
-		return DotResult.fail(DotError.CODE_INVALID, "an item with no id")
+		return GSResult.fail(GSError.CODE_INVALID, "an item with no id")
 	if size.x < 1 or size.y < 1:
-		return DotResult.fail(DotError.CODE_INVALID, "'%s' occupies no cells" % id)
+		return GSResult.fail(GSError.CODE_INVALID, "'%s' occupies no cells" % id)
 	if kind == Kind.UNIQUE and stack_max != 1:
-		return DotResult.fail(
-			DotError.CODE_INVALID,
+		return GSResult.fail(
+			GSError.CODE_INVALID,
 			"'%s' is unique and stacks to %d" % [id, stack_max],
 			"an item that carries its own state cannot be merged with another one"
 		)
 	if kind == Kind.CONTAINER:
 		if container_id == &"":
-			return DotResult.fail(
-				DotError.CODE_INVALID, "'%s' is a container that opens into nothing" % id
+			return GSResult.fail(
+				GSError.CODE_INVALID, "'%s' is a container that opens into nothing" % id
 			)
 		if stack_max != 1:
-			return DotResult.fail(
-				DotError.CODE_INVALID, "'%s' is a container that stacks" % id
+			return GSResult.fail(
+				GSError.CODE_INVALID, "'%s' is a container that stacks" % id
 			)
-	return DotResult.success(null)
+	return GSResult.success(null)
 
 
 ## A deep copy of [member meta], which is the only safe way to read it.

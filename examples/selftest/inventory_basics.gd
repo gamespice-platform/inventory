@@ -9,39 +9,39 @@ var _failed := 0
 var _section_count := 0
 
 
-func _catalogue() -> DotInvCatalogue:
-	var c := DotInvCatalogue.new()
+func _catalogue() -> GSInvCatalogue:
+	var c := GSInvCatalogue.new()
 
-	var ammo := DotInvItem.new()
+	var ammo := GSInvItem.new()
 	ammo.id = &"ammo"
 	ammo.name_key = &"item.ammo"
-	ammo.kind = DotInvItem.Kind.STACKABLE
+	ammo.kind = GSInvItem.Kind.STACKABLE
 	ammo.stack_max = 30
 	ammo.weight = 0.01
 	ammo.tags = [&"ammunition"]
 	c.add(ammo)
 
-	var rifle := DotInvItem.new()
+	var rifle := GSInvItem.new()
 	rifle.id = &"rifle"
 	rifle.name_key = &"item.rifle"
-	rifle.kind = DotInvItem.Kind.UNIQUE
+	rifle.kind = GSInvItem.Kind.UNIQUE
 	rifle.size = Vector2i(4, 2)
 	rifle.weight = 3.5
 	rifle.slot_tags = [&"primary"]
 	rifle.tags = [&"weapon"]
 	c.add(rifle)
 
-	var brick := DotInvItem.new()
+	var brick := GSInvItem.new()
 	brick.id = &"brick"
-	brick.kind = DotInvItem.Kind.UNIQUE
+	brick.kind = GSInvItem.Kind.UNIQUE
 	brick.size = Vector2i(2, 2)
 	brick.weight = 20.0
 	brick.rotatable = false
 	c.add(brick)
 
-	var pouch := DotInvItem.new()
+	var pouch := GSInvItem.new()
 	pouch.id = &"pouch"
-	pouch.kind = DotInvItem.Kind.CONTAINER
+	pouch.kind = GSInvItem.Kind.CONTAINER
 	pouch.container_id = &"pouch_space"
 	pouch.size = Vector2i(2, 2)
 	pouch.weight = 0.5
@@ -54,8 +54,8 @@ func _catalogue() -> DotInvCatalogue:
 	return c
 
 
-func _manager(containers: Array = [&"backpack", &"belt"]) -> DotInvManager:
-	var m := DotInvManager.new()
+func _manager(containers: Array = [&"backpack", &"belt"]) -> GSInvManager:
+	var m := GSInvManager.new()
 	m.catalogue = _catalogue()
 	m.register_as_service = false
 	m.ops_per_second = 0
@@ -67,19 +67,19 @@ func _manager(containers: Array = [&"backpack", &"belt"]) -> DotInvManager:
 func _test_items() -> void:
 	_section("An item is a document with no content in it")
 
-	var i := DotInvItem.new()
+	var i := GSInvItem.new()
 	_check(not i.validate().ok, "an item with no id is refused")
 	i.id = &"x"
 	_check(i.validate().ok, "and one with an id and a size is fine")
 
-	i.kind = DotInvItem.Kind.UNIQUE
+	i.kind = GSInvItem.Kind.UNIQUE
 	i.stack_max = 4
 	_check(
 		not i.validate().ok,
 		"a unique item that stacks is refused, because state cannot be merged"
 	)
 	i.stack_max = 1
-	i.kind = DotInvItem.Kind.CONTAINER
+	i.kind = GSInvItem.Kind.CONTAINER
 	_check(not i.validate().ok, "and a container that opens into nothing")
 
 	var rifle := _catalogue().find(&"rifle")
@@ -93,10 +93,10 @@ func _test_items() -> void:
 
 	var c := _catalogue()
 	_check(c.validate().ok, "the catalogue validates")
-	var orphan := DotInvCatalogue.new()
-	var bag := DotInvItem.new()
+	var orphan := GSInvCatalogue.new()
+	var bag := GSInvItem.new()
 	bag.id = &"bag"
-	bag.kind = DotInvItem.Kind.CONTAINER
+	bag.kind = GSInvItem.Kind.CONTAINER
 	bag.container_id = &"nowhere"
 	orphan.add(bag)
 	_check(
@@ -142,7 +142,7 @@ func _test_grid_placement() -> void:
 	_section("A grid, and the occupancy that is never stored")
 
 	var m := _manager()
-	var res := m.apply(DotInvOp.add(&"rifle", 1, &"backpack"))
+	var res := m.apply(GSInvOp.add(&"rifle", 1, &"backpack"))
 	_check(res.ok, "an item goes into the bag")
 	var bag := m.doc.get_container(&"backpack")
 	_check(bag.entries.size() == 1, "as one entry")
@@ -164,20 +164,20 @@ func _test_grid_placement() -> void:
 	)
 	_check(bag.entry_at(Vector2i(5, 3), m.catalogue) == 0, "and an empty cell knows it is empty")
 
-	var overlap := DotInvOp.add(&"rifle", 1, &"backpack")
+	var overlap := GSInvOp.add(&"rifle", 1, &"backpack")
 	overlap.to_cell = Vector2i(0, 0)
 	_check(not m.apply(overlap).ok, "something cannot be placed on top of something else")
 
-	var outside := DotInvOp.add(&"rifle", 1, &"backpack")
+	var outside := GSInvOp.add(&"rifle", 1, &"backpack")
 	outside.to_cell = Vector2i(4, 0)
 	_check(not m.apply(outside).ok, "nor hanging over the edge")
 
 	# Rotation is tried at each cell rather than after a whole failed pass, so a 4x2 rifle
 	# goes into a 2x4 gap instead of being refused.
 	var m2 := _manager()
-	m2.apply(DotInvOp.add(&"rifle", 1, &"backpack"))
-	m2.apply(DotInvOp.add(&"rifle", 1, &"backpack"))
-	var third := m2.apply(DotInvOp.add(&"rifle", 1, &"backpack"))
+	m2.apply(GSInvOp.add(&"rifle", 1, &"backpack"))
+	m2.apply(GSInvOp.add(&"rifle", 1, &"backpack"))
+	var third := m2.apply(GSInvOp.add(&"rifle", 1, &"backpack"))
 	_check(third.ok, "three 4x2 rifles fit in a 6x4 bag, which needs one of them turned")
 	var rotated := 0
 	for e_uid in m2.doc.get_container(&"backpack").entries.keys():
@@ -193,8 +193,8 @@ func _test_stacking() -> void:
 	_section("Stacks, and the complaint every inventory gets")
 
 	var m := _manager()
-	m.apply(DotInvOp.add(&"ammo", 10, &"backpack"))
-	m.apply(DotInvOp.add(&"ammo", 10, &"backpack"))
+	m.apply(GSInvOp.add(&"ammo", 10, &"backpack"))
+	m.apply(GSInvOp.add(&"ammo", 10, &"backpack"))
 	var bag := m.doc.get_container(&"backpack")
 	_check(
 		bag.entries.size() == 1,
@@ -202,16 +202,16 @@ func _test_stacking() -> void:
 	)
 	_check(bag.count_of(&"ammo") == 20, "with everything in it")
 
-	m.apply(DotInvOp.add(&"ammo", 25, &"backpack"))
+	m.apply(GSInvOp.add(&"ammo", 25, &"backpack"))
 	_check(bag.entries.size() == 2, "and overflows into a new stack at the stack limit")
 	_check(bag.count_of(&"ammo") == 45, "keeping the total right")
 
 	var uid: int = bag.entries.keys()[0]
-	var split := m.apply(DotInvOp.split(&"backpack", uid, 5, Vector2i(4, 3)))
+	var split := m.apply(GSInvOp.split(&"backpack", uid, 5, Vector2i(4, 3)))
 	_check(split.ok, "a stack splits")
 	_check(bag.count_of(&"ammo") == 45, "without changing the total")
 
-	var whole := DotInvOp.split(&"backpack", uid, 30, Vector2i(5, 3))
+	var whole := GSInvOp.split(&"backpack", uid, 30, Vector2i(5, 3))
 	_check(
 		not m.apply(whole).ok,
 		"and splitting the whole stack is refused, because that is a move and they are not the same op"
@@ -222,10 +222,10 @@ func _test_stacking() -> void:
 	# top-up rule changes, and then reports a bug in the merge.
 	var fresh := _manager()
 	var fbag := fresh.doc.get_container(&"backpack")
-	var full_op := DotInvOp.add(&"ammo", 30, &"backpack")
+	var full_op := GSInvOp.add(&"ammo", 30, &"backpack")
 	full_op.to_cell = Vector2i(0, 0)
 	fresh.apply(full_op)
-	var small_op := DotInvOp.add(&"ammo", 25, &"backpack")
+	var small_op := GSInvOp.add(&"ammo", 25, &"backpack")
 	small_op.to_cell = Vector2i(2, 0)
 	fresh.apply(small_op)
 	var full := fbag.entry_at(Vector2i(0, 0), fresh.catalogue)
@@ -233,7 +233,7 @@ func _test_stacking() -> void:
 	_check(full > 0 and partial > 0, "there is a full stack and a smaller one")
 	_check(int(fbag.entries[partial]["count"]) == 25, "of twenty-five")
 
-	var merged := fresh.apply(DotInvOp.merge(&"backpack", full, &"backpack", partial))
+	var merged := fresh.apply(GSInvOp.merge(&"backpack", full, &"backpack", partial))
 	_check(merged.ok, "a merge onto a stack with room works")
 	_check(
 		int(fbag.entries[partial]["count"]) == 30,
@@ -245,7 +245,7 @@ func _test_stacking() -> void:
 	)
 
 	_check(
-		not fresh.apply(DotInvOp.merge(&"backpack", full, &"backpack", full)).ok,
+		not fresh.apply(GSInvOp.merge(&"backpack", full, &"backpack", full)).ok,
 		"merging a stack with itself is refused"
 	)
 	fresh.queue_free()
@@ -257,13 +257,13 @@ func _test_moving() -> void:
 	_section("Moving, including one cell to the left")
 
 	var m := _manager()
-	m.apply(DotInvOp.add(&"rifle", 1, &"backpack"))
+	m.apply(GSInvOp.add(&"rifle", 1, &"backpack"))
 	var bag := m.doc.get_container(&"backpack")
 	var uid: int = bag.entries.keys()[0]
 
 	# The bug ignore_uid exists for: an item collides with itself, and the obvious
 	# workaround -- remove, then place -- loses the item when the place half fails.
-	var nudge := m.apply(DotInvOp.move(&"backpack", uid, &"backpack", Vector2i(1, 0)))
+	var nudge := m.apply(GSInvOp.move(&"backpack", uid, &"backpack", Vector2i(1, 0)))
 	_check(nudge.ok, "an item can be moved one cell, past itself")
 	var new_uid: int = bag.entries.keys()[0]
 	_check(
@@ -274,23 +274,23 @@ func _test_moving() -> void:
 
 	var slots := m.doc.get_container(&"belt")
 	_check(
-		not m.apply(DotInvOp.move(&"backpack", new_uid, &"belt", Vector2i(0, 0))).ok,
+		not m.apply(GSInvOp.move(&"backpack", new_uid, &"belt", Vector2i(0, 0))).ok,
 		"a container that only accepts ammunition refuses a rifle"
 	)
-	m.apply(DotInvOp.add(&"ammo", 5, &"backpack"))
+	m.apply(GSInvOp.add(&"ammo", 5, &"backpack"))
 	var ammo_uid := 0
 	for u in bag.entries.keys():
 		if str(bag.entries[u].get("item", "")) == "ammo":
 			ammo_uid = u
 	_check(
-		m.apply(DotInvOp.move(&"backpack", ammo_uid, &"belt", Vector2i(0, 0))).ok,
+		m.apply(GSInvOp.move(&"backpack", ammo_uid, &"belt", Vector2i(0, 0))).ok,
 		"and accepts what it is for"
 	)
 	_check(slots.entries.size() == 1, "which arrives in the slot")
 	_check(bag.count_of(&"ammo") == 0, "and has left the bag, rather than being in both")
 
 	_check(
-		not m.apply(DotInvOp.move(&"backpack", 99999, &"belt", Vector2i(1, 0))).ok,
+		not m.apply(GSInvOp.move(&"backpack", 99999, &"belt", Vector2i(1, 0))).ok,
 		"moving something that is not there is refused"
 	)
 
@@ -304,7 +304,7 @@ func _test_weight() -> void:
 	var bag := m.doc.get_container(&"backpack")
 	_check(is_equal_approx(bag.total_weight(m.catalogue, m.doc), 0.0), "an empty bag weighs nothing")
 
-	m.apply(DotInvOp.add(&"brick", 1, &"backpack"))
+	m.apply(GSInvOp.add(&"brick", 1, &"backpack"))
 	_check(
 		is_equal_approx(bag.total_weight(m.catalogue, m.doc), 20.0),
 		"and one with a brick in it weighs the brick"
@@ -313,10 +313,10 @@ func _test_weight() -> void:
 	# 20 kg in, 30 kg cap: the second brick would be 40 and is refused. There is plenty of
 	# room for it -- a 6x4 bag holds six 2x2 bricks -- which is exactly the point: a weight
 	# cap and a space cap are two different limits and a refusal has to say which one it is.
-	var second := m.apply(DotInvOp.add(&"brick", 1, &"backpack"))
+	var second := m.apply(GSInvOp.add(&"brick", 1, &"backpack"))
 	_check(not second.ok, "a second brick is refused: 40 kg in a 30 kg bag")
 	_check(
-		second.code() == DotError.CODE_QUOTA,
+		second.code() == GSError.CODE_QUOTA,
 		"for being too heavy rather than for not fitting, which are different answers"
 	)
 	_check(
@@ -324,7 +324,7 @@ func _test_weight() -> void:
 		"and there was room for it, so the weight cap is what refused it"
 	)
 
-	var light := m.apply(DotInvOp.add(&"ammo", 30, &"backpack"))
+	var light := m.apply(GSInvOp.add(&"ammo", 30, &"backpack"))
 	_check(light.ok, "while something light still goes in")
 
 	m.queue_free()

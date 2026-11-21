@@ -16,7 +16,7 @@ const CHECKS := 140
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.ERROR)
+	GSLog.set_level(GSLog.Level.ERROR)
 	# Awaited: the panel section waits a frame for a Control to lay itself out, and an
 	# un-awaited coroutine returns at its first `await` with the caller carrying on.
 	await _run()
@@ -78,7 +78,7 @@ func _test_nesting() -> void:
 	_section("A bag inside a bag, and never inside itself")
 
 	var m := _manager()
-	m.apply(DotInvOp.add(&"pouch", 1, &"backpack"))
+	m.apply(GSInvOp.add(&"pouch", 1, &"backpack"))
 	var bag := m.doc.get_container(&"backpack")
 	var pouch_uid: int = bag.entries.keys()[0]
 	var child := StringName(str(bag.entries[pouch_uid].get("child", "")))
@@ -86,7 +86,7 @@ func _test_nesting() -> void:
 	_check(m.doc.has_container(child), "which the document knows about")
 	_check(m.doc.depth_of(child) == 1, "one level down")
 
-	m.apply(DotInvOp.add(&"ammo", 10, child))
+	m.apply(GSInvOp.add(&"ammo", 10, child))
 	_check(m.doc.get_container(child).count_of(&"ammo") == 10, "and things go into it")
 	_check(
 		m.doc.weight_of(&"backpack") > 0.5,
@@ -103,8 +103,8 @@ func _test_nesting() -> void:
 	# That is the space rule doing its job, not a nesting failure -- and the two look
 	# identical from outside, which is why the ammo is dropped explicitly here.
 	var ammo_in_pouch: int = m.doc.get_container(child).entries.keys()[0]
-	m.apply(DotInvOp.drop(child, ammo_in_pouch))
-	var nested := m.apply(DotInvOp.add(&"pouch", 1, child))
+	m.apply(GSInvOp.drop(child, ammo_in_pouch))
+	var nested := m.apply(GSInvOp.add(&"pouch", 1, child))
 	_check(nested.ok, "a pouch goes inside an empty pouch")
 	var inner_uid: int = m.doc.get_container(child).entries.keys()[0]
 	var grandchild := StringName(str(m.doc.get_container(child).entries[inner_uid].get("child", "")))
@@ -131,7 +131,7 @@ func _test_nesting() -> void:
 
 	# Dropping a container takes what is inside it with it.
 	var before := m.doc.containers.size()
-	m.apply(DotInvOp.drop(&"backpack", pouch_uid))
+	m.apply(GSInvOp.drop(&"backpack", pouch_uid))
 	_check(m.doc.containers.size() == before - 2, "dropping a bag removes it and everything under it")
 	_check(not m.doc.has_container(grandchild), "including the one two levels down")
 
@@ -148,7 +148,7 @@ func _test_rollback() -> void:
 	m.authoritative = false
 	m.send_fn = func(op: Dictionary) -> void: sent.append(op)
 
-	var res := m.apply(DotInvOp.add(&"rifle", 1, &"backpack"))
+	var res := m.apply(GSInvOp.add(&"rifle", 1, &"backpack"))
 	_check(res.ok, "a client applies an op locally")
 	_check(sent.size() == 1, "and sends it")
 	_check(m.pending_count() == 1, "keeping it, which is what makes a rollback possible")
@@ -161,7 +161,7 @@ func _test_rollback() -> void:
 		"and the item is gone, restored from the snapshot rather than from an inverse"
 	)
 
-	var again := m.apply(DotInvOp.add(&"ammo", 5, &"backpack"))
+	var again := m.apply(GSInvOp.add(&"ammo", 5, &"backpack"))
 	_check(again.ok, "another op applies")
 	m.confirm(sent[1])
 	_check(m.pending_count() == 0, "a confirmation clears it without touching the document")
@@ -173,11 +173,11 @@ func _test_rollback() -> void:
 	limited.setup([&"backpack", &"belt"])
 	var accepted := 0
 	for _i in range(20):
-		if limited.apply(DotInvOp.add(&"ammo", 1, &"backpack"), &"spammer").ok:
+		if limited.apply(GSInvOp.add(&"ammo", 1, &"backpack"), &"spammer").ok:
 			accepted += 1
 	_check(accepted <= 4, "a flood of operations is refused after a few (%d got through)" % accepted)
 	_check(
-		limited.apply(DotInvOp.add(&"ammo", 1, &"backpack"), &"somebody_else").ok,
+		limited.apply(GSInvOp.add(&"ammo", 1, &"backpack"), &"somebody_else").ok,
 		"and somebody else is not throttled by it, because the bucket is per actor"
 	)
 
@@ -190,8 +190,8 @@ func _test_rollback() -> void:
 		loaded.doc.get_container(&"backpack").count_of(&"ammo") == 5,
 		"with its contents"
 	)
-	var op_dict := DotInvOp.move(&"backpack", 3, &"belt", Vector2i(1, 0), true).to_dictionary()
-	var back := DotInvOp.from_dictionary(op_dict)
+	var op_dict := GSInvOp.move(&"backpack", 3, &"belt", Vector2i(1, 0), true).to_dictionary()
+	var back := GSInvOp.from_dictionary(op_dict)
 	_check(back.to_cell == Vector2i(1, 0), "and so does an op, including its cell")
 	_check(back.to_rotated, "and its rotation")
 
@@ -206,11 +206,11 @@ func _test_query_and_loadout() -> void:
 	_section("Filtering is the client's, and dot-loadout is one file away")
 
 	var m := _manager()
-	m.apply(DotInvOp.add(&"rifle", 1, &"backpack"))
-	m.apply(DotInvOp.add(&"ammo", 20, &"backpack"))
-	m.apply(DotInvOp.add(&"brick", 1, &"backpack"))
+	m.apply(GSInvOp.add(&"rifle", 1, &"backpack"))
+	m.apply(GSInvOp.add(&"ammo", 20, &"backpack"))
+	m.apply(GSInvOp.add(&"brick", 1, &"backpack"))
 
-	var q := DotInvQuery.new()
+	var q := GSInvQuery.new()
 	_check(q.run(m.doc, m.catalogue).size() == 3, "an empty query finds everything")
 
 	q.tags = [&"weapon"]
@@ -221,22 +221,22 @@ func _test_query_and_loadout() -> void:
 	_check(q.run(m.doc, m.catalogue).size() == 1, "and a text search is case-insensitive")
 
 	q.text = ""
-	q.sort_by = DotInvQuery.Sort.WEIGHT
+	q.sort_by = GSInvQuery.Sort.WEIGHT
 	var by_weight := q.run(m.doc, m.catalogue)
 	_check(
-		(by_weight[0]["item"] as DotInvItem).id == &"ammo",
+		(by_weight[0]["item"] as GSInvItem).id == &"ammo",
 		"sorting by weight puts the lightest first"
 	)
 	q.descending = true
 	var heavy := q.run(m.doc, m.catalogue)
 	_check(
-		(heavy[0]["item"] as DotInvItem).id == &"brick",
+		(heavy[0]["item"] as GSInvItem).id == &"brick",
 		"and reversing puts the heaviest first"
 	)
 
 	# Ties are broken by id, always. sort_custom is not stable in Godot, so a sorted list
 	# that reshuffles its ties on every redraw looks like a bug in the inventory.
-	m.apply(DotInvOp.add(&"brick", 1, &"belt"))
+	m.apply(GSInvOp.add(&"brick", 1, &"belt"))
 	q.descending = false
 	var first := q.run(m.doc, m.catalogue)
 	var second := q.run(m.doc, m.catalogue)
@@ -246,7 +246,7 @@ func _test_query_and_loadout() -> void:
 			stable = false
 	_check(stable, "and two runs of one query come out in the same order")
 
-	var link := DotInvLoadoutLink.of(null)
+	var link := GSInvLoadoutLink.of(null)
 	_check(not link.usable(), "a link with nothing behind it says so rather than failing later")
 	_check(
 		link.fill_from_loadout(m, &"backpack").is_empty(),
@@ -254,7 +254,7 @@ func _test_query_and_loadout() -> void:
 	)
 
 	var fake := FakeLoadout.new()
-	var real := DotInvLoadoutLink.of(fake)
+	var real := GSInvLoadoutLink.of(fake)
 	_check(real.usable(), "a link to something that can answer is usable")
 	var fresh := _manager()
 	var missed := real.fill_from_loadout(fresh, &"backpack")
@@ -271,7 +271,7 @@ func _test_query_and_loadout() -> void:
 class FakeLoadout:
 	extends RefCounted
 
-	## GameSpice Loadout's DotLoadout, the per-player document, reduced to what the link calls --
+	## GameSpice Loadout's GSLoadout, the per-player document, reduced to what the link calls --
 	## with the real signatures, not invented ones. The link used to duck-type against
 	## `slots()` and `set_items()`, which this fake had and GameSpice Loadout never did, so it
 	## passed here and worked nowhere. Section 10 runs the same calls against the real one.
@@ -317,11 +317,11 @@ func _test_the_panel_asks_the_same_question() -> void:
 	_section("A cell lights up because the manager said so")
 
 	var m := _manager()
-	m.apply(DotInvOp.add(&"rifle", 1, &"backpack"))
+	m.apply(GSInvOp.add(&"rifle", 1, &"backpack"))
 	var bag := m.doc.get_container(&"backpack")
 	var uid: int = bag.entries.keys()[0]
 
-	var panel := DotInvPanel.new()
+	var panel := GSInvPanel.new()
 	panel.name = "Panel"
 	panel.manager = m
 	panel.container_id = &"backpack"
@@ -357,7 +357,7 @@ func _test_the_panel_asks_the_same_question() -> void:
 	# would make (1,1) a legitimate refusal -- a 4x2 rifle there reaches the cell the
 	# brick is in -- and the failure would read as the drop being broken.
 	var moves := []
-	panel.moved.connect(func(_op: DotInvOp, r: DotResult) -> void: moves.append(r))
+	panel.moved.connect(func(_op: GSInvOp, r: GSResult) -> void: moves.append(r))
 	var res := panel.do_drop(payload, Vector2i(1, 2))
 	_check(res.ok, "a drop applies")
 	_check(moves.size() == 1, "and announces itself once")
@@ -368,7 +368,7 @@ func _test_the_panel_asks_the_same_question() -> void:
 	# 4x2 has moved is a placement that depends on the earlier drop, and a brick that did
 	# not fit would leave the next three lines indexing a dictionary by zero -- which is
 	# an aborted section rather than a failed check.
-	var brick_op := DotInvOp.add(&"brick", 1, &"backpack")
+	var brick_op := GSInvOp.add(&"brick", 1, &"backpack")
 	brick_op.to_cell = Vector2i(0, 0)
 	_check(m.apply(brick_op).ok, "and something else goes in beside it")
 	var brick_cell := Vector2i(0, 0)
@@ -432,8 +432,8 @@ func _test_the_real_loadout() -> void:
 	doc.call("set_item", &"secondary", &"not_in_this_catalogue")
 	doc.call("set_item", &"sidearm_ammo", &"ammo", 20)
 
-	var link := DotInvLoadoutLink.of(doc)
-	_check(link.usable(), "a real DotLoadout is usable")
+	var link := GSInvLoadoutLink.of(doc)
+	_check(link.usable(), "a real GSLoadout is usable")
 
 	var m := _manager()
 	var missed := link.fill_from_loadout(m, &"backpack")
@@ -450,7 +450,7 @@ func _test_the_real_loadout() -> void:
 	for uid in bag.entries.keys():
 		if StringName(str((bag.entries[uid] as Dictionary).get("item", ""))) == &"rifle":
 			rifle_uid = int(uid)
-	m.apply(DotInvOp.drop(&"backpack", rifle_uid))
+	m.apply(GSInvOp.drop(&"backpack", rifle_uid))
 
 	var cleared := link.publish_to_loadout(m, &"backpack")
 	_check(
@@ -467,7 +467,7 @@ func _test_the_real_loadout() -> void:
 	# The mistake the old wording invited: handing over the manager instead of a document.
 	var manager: Object = (load(REAL_LOADOUT_MANAGER) as GDScript).new()
 	_check(
-		not DotInvLoadoutLink.of(manager).usable(),
+		not GSInvLoadoutLink.of(manager).usable(),
 		"the loadout manager itself is not a loadout, and the link says so"
 	)
 	manager.free()
@@ -486,42 +486,42 @@ func _test_what_the_wire_found() -> void:
 	#    logged as an ERROR, "failed after it had been validated", for an ordinary full bag.
 	var errors: Array[String] = []
 	var on_record := func(rec: Dictionary) -> void:
-		if int(rec.get("level", 0)) >= DotLog.Level.ERROR:
+		if int(rec.get("level", 0)) >= GSLog.Level.ERROR:
 			errors.append(str(rec.get("message", "")))
-	DotLog.signals().record.connect(on_record)
+	GSLog.signals().record.connect(on_record)
 
 	var full := _manager()
 	for i in range(3):
-		var stack := DotInvOp.add(&"ammo", 30, &"belt")
+		var stack := GSInvOp.add(&"ammo", 30, &"belt")
 		full.apply(stack)
 	_check(full.doc.get_container(&"belt").entries.size() == 3, "a three-slot belt holds three full stacks")
-	var more := DotInvOp.add(&"ammo", 1, &"belt")
+	var more := GSInvOp.add(&"ammo", 1, &"belt")
 	var asked := full.validate(more)
 	_check(not asked.ok, "and validate refuses a fourth, because there is no room for it")
-	_check(asked.code() == DotError.CODE_QUOTA, "as a quota, the same answer applying it gives")
+	_check(asked.code() == GSError.CODE_QUOTA, "as a quota, the same answer applying it gives")
 	var tried := full.apply(more)
-	_check(not tried.ok and tried.code() == DotError.CODE_QUOTA, "applying it is refused the same way")
+	_check(not tried.ok and tried.code() == GSError.CODE_QUOTA, "applying it is refused the same way")
 	_check(errors.is_empty(), "and nothing logs an ERROR for a full belt (%s)" % ", ".join(errors))
 
 	var topped := _manager()
-	topped.apply(DotInvOp.add(&"ammo", 30, &"belt"))
-	topped.apply(DotInvOp.add(&"ammo", 30, &"belt"))
-	topped.apply(DotInvOp.add(&"ammo", 25, &"belt"))
-	var partial := DotInvOp.add(&"ammo", 10, &"belt")
+	topped.apply(GSInvOp.add(&"ammo", 30, &"belt"))
+	topped.apply(GSInvOp.add(&"ammo", 30, &"belt"))
+	topped.apply(GSInvOp.add(&"ammo", 25, &"belt"))
+	var partial := GSInvOp.add(&"ammo", 10, &"belt")
 	_check(topped.validate(partial).ok, "a pickup that only half fits is still allowed")
 	var half := topped.apply(partial)
 	_check(
 		half.ok and int((half.value as Dictionary).get("left", -1)) == 5,
 		"and adds the half that fits, reporting the rest"
 	)
-	var onto := DotInvOp.add(&"rifle", 1, &"backpack")
+	var onto := GSInvOp.add(&"rifle", 1, &"backpack")
 	onto.to_cell = Vector2i(0, 0)
 	topped.apply(onto)
-	var clash := DotInvOp.add(&"brick", 1, &"backpack")
+	var clash := GSInvOp.add(&"brick", 1, &"backpack")
 	clash.to_cell = Vector2i(1, 0)
 	_check(not topped.validate(clash).ok, "an ADD to a named cell that is taken is refused by validate")
 	_check(errors.is_empty(), "still with no ERROR (%s)" % ", ".join(errors))
-	DotLog.signals().record.disconnect(on_record)
+	GSLog.signals().record.disconnect(on_record)
 	full.queue_free()
 	topped.queue_free()
 
@@ -531,7 +531,7 @@ func _test_what_the_wire_found() -> void:
 	var p := _manager()
 	p.authoritative = false
 	p.send_fn = func(d: Dictionary) -> void: sent.append(d)
-	var named := DotInvOp.add(&"ammo", 40, &"backpack")
+	var named := GSInvOp.add(&"ammo", 40, &"backpack")
 	named.to_cell = Vector2i(1, 1)
 	p.apply(named)
 	_check(named.to_cell == Vector2i(1, 1), "applying an ADD does not rewrite the caller's cell")
@@ -547,8 +547,8 @@ func _test_what_the_wire_found() -> void:
 	var r := _manager()
 	r.authoritative = false
 	r.send_fn = func(d: Dictionary) -> void: sent.append(d)
-	r.apply(DotInvOp.add(&"rifle", 1, &"backpack"))
-	r.apply(DotInvOp.add(&"ammo", 5, &"belt"))
+	r.apply(GSInvOp.add(&"rifle", 1, &"backpack"))
+	r.apply(GSInvOp.add(&"ammo", 5, &"belt"))
 	r.rollback(sent[0])
 	_check(r.doc.get_container(&"backpack").count_of(&"rifle") == 0, "rolling back A takes A away")
 	_check(
@@ -564,14 +564,14 @@ func _test_what_the_wire_found() -> void:
 	var dep := _manager()
 	dep.authoritative = false
 	dep.send_fn = func(d: Dictionary) -> void: sent.append(d)
-	var lost: Array[DotInvOp] = []
-	dep.dropped.connect(func(op: DotInvOp, _res: DotResult) -> void: lost.append(op))
-	var ammo_add := dep.apply(DotInvOp.add(&"ammo", 5, &"backpack"))
+	var lost: Array[GSInvOp] = []
+	dep.dropped.connect(func(op: GSInvOp, _res: GSResult) -> void: lost.append(op))
+	var ammo_add := dep.apply(GSInvOp.add(&"ammo", 5, &"backpack"))
 	var ammo_uid: int = dep.doc.get_container(&"backpack").entries.keys()[0]
-	dep.apply(DotInvOp.move(&"backpack", ammo_uid, &"belt", Vector2i(0, 0)))
+	dep.apply(GSInvOp.move(&"backpack", ammo_uid, &"belt", Vector2i(0, 0)))
 	var gone := dep.rollback(sent[0])
 	_check(
-		ammo_add.ok and gone.size() == 1 and int(gone[0]["kind"]) == DotInvOp.Kind.MOVE,
+		ammo_add.ok and gone.size() == 1 and int(gone[0]["kind"]) == GSInvOp.Kind.MOVE,
 		"a move of what was rolled back is dropped, and returned"
 	)
 	_check(lost.size() == 1 and dep.pending_count() == 0, "reported through dropped, and no longer pending")
@@ -585,11 +585,11 @@ func _test_what_the_wire_found() -> void:
 	var twice := _manager()
 	twice.authoritative = false
 	twice.send_fn = func(d: Dictionary) -> void: sent.append(d)
-	twice.apply_authoritative(DotInvOp.add(&"ammo", 10, &"backpack"))
+	twice.apply_authoritative(GSInvOp.add(&"ammo", 10, &"backpack"))
 	var stack_uid: int = twice.doc.get_container(&"backpack").entries.keys()[0]
-	twice.apply(DotInvOp.drop(&"backpack", stack_uid, 1))
+	twice.apply(GSInvOp.drop(&"backpack", stack_uid, 1))
 	twice.confirm(sent[0])
-	twice.apply(DotInvOp.drop(&"backpack", stack_uid, 1))
+	twice.apply(GSInvOp.drop(&"backpack", stack_uid, 1))
 	twice.rollback(sent[1])
 	twice.rollback(sent[1])
 	_check(
@@ -607,23 +607,23 @@ func _test_what_the_wire_found() -> void:
 	c3.authoritative = false
 	var up: Array[Dictionary] = []
 	c3.send_fn = func(d: Dictionary) -> void: up.append(d)
-	var brick_add := DotInvOp.add(&"brick", 1, &"backpack")
+	var brick_add := GSInvOp.add(&"brick", 1, &"backpack")
 	s3.apply(brick_add, &"server")
-	c3.apply_authoritative(DotInvOp.from_dictionary(brick_add.to_dictionary()))
+	c3.apply_authoritative(GSInvOp.from_dictionary(brick_add.to_dictionary()))
 	_check(up.is_empty() and c3.pending_count() == 0, "a server's op applied to a client is not sent back, nor pending")
 	var brick_uid: int = c3.doc.get_container(&"backpack").entries.keys()[0]
 	# The client predicts the brick to the far corner; before that reaches the server, the
 	# server adds a rifle -- by first-fit, on a layout with the brick still at the origin.
-	c3.apply(DotInvOp.move(&"backpack", brick_uid, &"backpack", Vector2i(4, 2)))
-	var rifle_add := DotInvOp.add(&"rifle", 1, &"backpack")
+	c3.apply(GSInvOp.move(&"backpack", brick_uid, &"backpack", Vector2i(4, 2)))
+	var rifle_add := GSInvOp.add(&"rifle", 1, &"backpack")
 	s3.apply(rifle_add, &"server")
-	var landed := c3.apply_authoritative(DotInvOp.from_dictionary(rifle_add.to_dictionary()))
+	var landed := c3.apply_authoritative(GSInvOp.from_dictionary(rifle_add.to_dictionary()))
 	_check(landed.ok and up.size() == 1 and c3.pending_count() == 1, "it lands, and the prediction is still in flight")
 	for d in up:
-		s3.apply(DotInvOp.from_dictionary(d), &"client")
+		s3.apply(GSInvOp.from_dictionary(d), &"client")
 	c3.confirm(up[0])
 	_check(
-		DotValue.same_dictionary(c3.to_dictionary(), s3.to_dictionary()),
+		GSValue.same_dictionary(c3.to_dictionary(), s3.to_dictionary()),
 		"and the client's bag is the server's: the rifle went where the server put it, under the move"
 	)
 	s3.queue_free()
@@ -637,9 +637,9 @@ func _test_what_the_wire_found() -> void:
 	var by_server := 0
 	var by_spammer := 0
 	for _i in range(20):
-		if lim.apply(DotInvOp.add(&"ammo", 1, &"backpack"), &"server").ok:
+		if lim.apply(GSInvOp.add(&"ammo", 1, &"backpack"), &"server").ok:
 			by_server += 1
-		if lim.apply(DotInvOp.add(&"ammo", 1, &"backpack"), &"spammer").ok:
+		if lim.apply(GSInvOp.add(&"ammo", 1, &"backpack"), &"spammer").ok:
 			by_spammer += 1
 	_check(by_server == 20, "an exempt actor is never limited (%d of 20)" % by_server)
 	_check(by_spammer <= 4, "and everybody else still is (%d got through)" % by_spammer)
@@ -649,20 +649,20 @@ func _test_what_the_wire_found() -> void:
 	#    a second move onto the uid its first predicted named whatever the SERVER had given
 	#    that number to -- measured: a crate the server added in between, moved validly.
 	var server := _manager()
-	server.apply(DotInvOp.add(&"rifle", 1, &"backpack"))
+	server.apply(GSInvOp.add(&"rifle", 1, &"backpack"))
 	var client := _manager()
 	client.adopt(server.to_dictionary())
 	client.authoritative = false
 	var wire: Array[Dictionary] = []
 	client.send_fn = func(d: Dictionary) -> void: wire.append(d)
 	var rifle_uid: int = client.doc.get_container(&"backpack").entries.keys()[0]
-	var first := client.apply(DotInvOp.move(&"backpack", rifle_uid, &"backpack", Vector2i(0, 2)))
+	var first := client.apply(GSInvOp.move(&"backpack", rifle_uid, &"backpack", Vector2i(0, 2)))
 	_check(first.ok and int(first.value) == rifle_uid, "a move inside one container keeps the uid")
-	client.apply(DotInvOp.move(&"backpack", int(first.value), &"backpack", Vector2i(0, 0)))
+	client.apply(GSInvOp.move(&"backpack", int(first.value), &"backpack", Vector2i(0, 0)))
 	# The server gives a brick before either move reaches it.
-	server.apply(DotInvOp.add(&"brick", 1, &"backpack"))
+	server.apply(GSInvOp.add(&"brick", 1, &"backpack"))
 	for d in wire:
-		server.apply(DotInvOp.from_dictionary(d), &"client")
+		server.apply(GSInvOp.from_dictionary(d), &"client")
 	var sbag := server.doc.get_container(&"backpack")
 	var at_origin := sbag.entry_at(Vector2i(0, 0), server.catalogue)
 	_check(

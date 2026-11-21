@@ -1,4 +1,4 @@
-class_name DotInvPanel
+class_name GSInvPanel
 extends Control
 
 ## A grid you can drag things around in, built in code and themed by nothing.
@@ -7,17 +7,17 @@ extends Control
 ## [method Control._get_drag_data], [method Control._can_drop_data] and
 ## [method Control._drop_data] are the drag-and-drop mechanism — they are the engine, not
 ## GameSpice UI — so a panel built on them works in a project that has GameSpice UI and in one that does
-## not, and drops onto a `DotScreen` without knowing what one is.
+## not, and drops onto a `GSScreen` without knowing what one is.
 ##
 ## [b]What it draws is not the point. What it refuses is.[/b] Every drop asks
-## [method DotInvManager.validate] before it is allowed to start, so a cell that cannot take
+## [method GSInvManager.validate] before it is allowed to start, so a cell that cannot take
 ## what is being dragged never lights up — and the same call the server will make is the one
 ## the highlight came from. A panel that decided for itself which drops look legal is a
 ## panel that will eventually disagree with the server, and the player sees a move accepted
 ## on screen and undone a round trip later.
 ##
 ## [codeblock]
-## var panel := DotInvPanel.new()
+## var panel := GSInvPanel.new()
 ## panel.manager = inventory
 ## panel.container_id = &"backpack"
 ## add_child(panel)
@@ -27,12 +27,12 @@ extends Control
 ## [member icon_resolver]; without one, a cell draws the item's id.
 
 ## A drag ended on this panel and the op was applied.
-signal moved(op: DotInvOp, res: DotResult)
+signal moved(op: GSInvOp, res: GSResult)
 
 ## Something was picked up, so a game can grey out what it will not fit in.
 signal picked_up(container_id: StringName, uid: int)
 
-@export var manager: DotInvManager = null
+@export var manager: GSInvManager = null
 
 @export var container_id: StringName = &""
 
@@ -42,7 +42,7 @@ signal picked_up(container_id: StringName, uid: int)
 ## Who this panel acts as. Passed to every op, never read off anything.
 @export var actor: StringName = &"local"
 
-## [code](item: DotInvItem) -> Texture2D[/code]. Optional; without one, cells draw the id.
+## [code](item: GSInvItem) -> Texture2D[/code]. Optional; without one, cells draw the id.
 var icon_resolver: Callable = Callable()
 
 var _grid: Control = null
@@ -79,8 +79,8 @@ func refresh() -> void:
 		child.queue_free()
 	_cells.clear()
 
-	var w := container.width if container.shape == DotInvContainer.Shape.GRID else container.slots
-	var h := container.height if container.shape == DotInvContainer.Shape.GRID else 1
+	var w := container.width if container.shape == GSInvContainer.Shape.GRID else container.slots
+	var h := container.height if container.shape == GSInvContainer.Shape.GRID else 1
 	custom_minimum_size = Vector2(w * cell_size, h * cell_size)
 
 	for y in range(h):
@@ -92,7 +92,7 @@ func refresh() -> void:
 
 
 func _add_cell(at: Vector2i) -> void:
-	var cell := DotInvCell.new()
+	var cell := GSInvCell.new()
 	cell.panel = self
 	cell.cell = at
 	cell.position = Vector2(at.x * cell_size, at.y * cell_size)
@@ -102,14 +102,14 @@ func _add_cell(at: Vector2i) -> void:
 	_cells[at] = cell
 
 
-func _add_item(uid: int, entry: Dictionary, container: DotInvContainer) -> void:
+func _add_item(uid: int, entry: Dictionary, container: GSInvContainer) -> void:
 	var item := manager.catalogue.find(StringName(str(entry.get("item", ""))))
 	if item == null:
 		return
 	var fp := item.footprint(bool(entry.get("rotated", false)))
 	var at: Vector2i = entry.get("cell", Vector2i.ZERO)
 
-	var button := DotInvItemView.new()
+	var button := GSInvItemView.new()
 	button.panel = self
 	button.uid = uid
 	button.item = item
@@ -119,7 +119,7 @@ func _add_item(uid: int, entry: Dictionary, container: DotInvContainer) -> void:
 	if icon_resolver.is_valid():
 		button.icon = icon_resolver.call(item)
 	elif item.icon_path != "":
-		# The fallback that makes `DotInvItem.icon_path` mean something. Without it the
+		# The fallback that makes `GSInvItem.icon_path` mean something. Without it the
 		# field was a documented declaration nothing anywhere read, and a catalogue that
 		# named an icon for every item drew the ids regardless.
 		#
@@ -143,7 +143,7 @@ func _add_item(uid: int, entry: Dictionary, container: DotInvContainer) -> void:
 func may_drop(payload: Dictionary, at: Vector2i) -> bool:
 	if manager == null or not payload.has("uid"):
 		return false
-	var op := DotInvOp.move(
+	var op := GSInvOp.move(
 		StringName(str(payload.get("from", ""))),
 		int(payload["uid"]),
 		container_id,
@@ -154,8 +154,8 @@ func may_drop(payload: Dictionary, at: Vector2i) -> bool:
 
 
 ## Applies a drop. Returns what the manager said.
-func do_drop(payload: Dictionary, at: Vector2i) -> DotResult:
-	var op := DotInvOp.move(
+func do_drop(payload: Dictionary, at: Vector2i) -> GSResult:
+	var op := GSInvOp.move(
 		StringName(str(payload.get("from", ""))),
 		int(payload["uid"]),
 		container_id,
@@ -178,10 +178,10 @@ func dragging_uid() -> int:
 
 
 ## One cell. Takes the drop, because a cell is what a position means.
-class DotInvCell:
+class GSInvCell:
 	extends Control
 
-	var panel: DotInvPanel = null
+	var panel: GSInvPanel = null
 	var cell: Vector2i = Vector2i.ZERO
 
 	func _can_drop_data(_at: Vector2, data: Variant) -> bool:
@@ -199,12 +199,12 @@ class DotInvCell:
 
 
 ## One item. Starts the drag, because an item is what is being moved.
-class DotInvItemView:
+class GSInvItemView:
 	extends Button
 
-	var panel: DotInvPanel = null
+	var panel: GSInvPanel = null
 	var uid: int = 0
-	var item: DotInvItem = null
+	var item: GSInvItem = null
 	var count: int = 1
 
 	func _ready() -> void:

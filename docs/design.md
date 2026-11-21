@@ -4,7 +4,7 @@ Why GameSpice Inventory is shaped the way it is, and why the obvious alternative
 
 ## Why this is not GameSpice Loadout
 
-`DotItem` was taken, which is a symptom rather than the reason. The reason is that the two answer different questions and want opposite properties:
+`GSItem` was taken, which is a symptom rather than the reason. The reason is that the two answer different questions and want opposite properties:
 
 | | GameSpice Loadout | GameSpice Inventory |
 | --- | --- | --- |
@@ -14,9 +14,9 @@ Why GameSpice Inventory is shaped the way it is, and why the obvious alternative
 | Validation | The whole document, against entitlements | One op, against the current state |
 | On a refusal | The publish fails | That one move fails, and nothing else moves |
 
-Building one on the other would mean either a loadout that has to be re-validated on every drag, or an inventory whose refusal throws away nine good moves. They meet in **one file**, `DotInvLoadoutLink`, duck-typed, which is the same arrangement GameSpice NPC AI has with GameSpice NPC.
+Building one on the other would mean either a loadout that has to be re-validated on every drag, or an inventory whose refusal throws away nine good moves. They meet in **one file**, `GSInvLoadoutLink`, duck-typed, which is the same arrangement GameSpice NPC AI has with GameSpice NPC.
 
-### The link takes one player's `DotLoadout`, not the `DotLoadoutManager`
+### The link takes one player's `GSLoadout`, not the `GSLoadoutManager`
 
 It reads `filled_slots()` / `item_in()` / `count_in()` and writes `clear_slot()`, which are the document's real methods. The game gets the document from `await manager.active_for(key)` (a copy of it, since the manager caches the original) and hands the edited copy to `manager.publish`, which stays dot-loadout's trust boundary. Only removal crosses back: which slot a new item belongs in is the schema's question. The self-test's dot-loadout section runs against the real dot-loadout, linked for the test the way dot-team links dot-spectate, and reached by path so the addon still names nothing.
 
@@ -42,17 +42,17 @@ The snapshots are bounded at 64 (`MAX_HISTORY`), because an unbounded undo histo
 
 ## Identity survives the wire
 
-In one process an op, an entry and an actor can be told apart by being the same object; across a wire each needs a name that survives. So the history is searched by identity (`_history_index`), never by content, whenever the object is to hand. A MOVE within a container edits the entry in place; across containers it keeps the uid unless the destination already uses it (`DotInvContainer.add_entry_keeping`), because uids are per container. A client chains its next op onto the uid its first one predicted, so a re-allocated uid silently names something else.
+In one process an op, an entry and an actor can be told apart by being the same object; across a wire each needs a name that survives. So the history is searched by identity (`_history_index`), never by content, whenever the object is to hand. A MOVE within a container edits the entry in place; across containers it keeps the uid unless the destination already uses it (`GSInvContainer.add_entry_keeping`), because uids are per container. A client chains its next op onto the uid its first one predicted, so a re-allocated uid silently names something else.
 
 ## Two derived things that must never be stored
 
 **Occupancy.** `occupied_cells()` is computed from the entries. A grid that stores both a cell map and an item list can have them disagree, which is this tree's most expensive bug shape: GameSpice Props used one list for ownership *and* undo, so trimming it to the undo depth removed props from their owner's account and a player could hold any number for free.
 
-**A container's shape.** `DotInvDoc.adopt` takes width, height, slots, weight cap and accepted tags from the **catalogue**, not from the saved document. A stored width is a stored copy of a declaration, and the two go out of step the first time somebody makes a backpack bigger, with every old save silently keeping the old size and nothing saying so.
+**A container's shape.** `GSInvDoc.adopt` takes width, height, slots, weight cap and accepted tags from the **catalogue**, not from the saved document. A stored width is a stored copy of a declaration, and the two go out of step the first time somebody makes a backpack bigger, with every old save silently keeping the old size and nothing saying so.
 
 ## Validation asks what applying will do
 
-`_validate_add` checks room with `DotInvContainer.room_for_add`, which asks exactly what `_do_add` will look for: top-ups first, a named cell, then first-fit. A full container is refused with `CODE_QUOTA`. An ADD that tops up or places anything is still allowed, because a pickup that half fits adds the half. Validation and application asking different questions is how a shop charges for a purchase that then fails.
+`_validate_add` checks room with `GSInvContainer.room_for_add`, which asks exactly what `_do_add` will look for: top-ups first, a named cell, then first-fit. A full container is refused with `CODE_QUOTA`. An ADD that tops up or places anything is still allowed, because a pickup that half fits adds the half. Validation and application asking different questions is how a shop charges for a purchase that then fails.
 
 ## `ignore_uid` is not an optimisation
 
@@ -68,13 +68,13 @@ An item moved inside its own container collides with itself. Without `ignore_uid
 
 - **A name key, never a name.** An item document is stored, sent to a server, and read back by a client whose language nobody knew when it was written. A stored display name is also a stored typo: fixing one means rewriting every save that has it.
 - **An icon PATH, never a `Texture2D`.** The rule GameSpice Props, GameSpice Audio and GameSpice FX all follow: a mounted pack's `class_name` globals are not registered in the host, so a catalogue that preloads cannot describe delivered content, and a server validating an inventory must not need an icon.
-- **The rate limit is per actor.** An inventory is the cheapest denial of service a client has: a move is a validation, a weight sum and a redraw, sent as fast as it likes. `DotRateLimiter` is keyed on the actor, because one shared bucket means one player flooding throttles everybody. `unlimited_actors` (empty by default) names the ones it never applies to: the actor a server applies its own purchases and gives as, which cannot flood itself and otherwise spent whoever's bag it was changing.
+- **The rate limit is per actor.** An inventory is the cheapest denial of service a client has: a move is a validation, a weight sum and a redraw, sent as fast as it likes. `GSRateLimiter` is keyed on the actor, because one shared bucket means one player flooding throttles everybody. `unlimited_actors` (empty by default) names the ones it never applies to: the actor a server applies its own purchases and gives as, which cannot flood itself and otherwise spent whoever's bag it was changing.
 - **`actor` is set by the receiver, never read off the wire.** It is the field a client would forge first. `apply(op, actor)` takes it from the caller's own knowledge (the connection the op arrived on) and `to_dictionary()` deliberately leaves it out.
 - **Sorting breaks ties on the id.** `Array.sort_custom` is not stable in Godot, so a sorted list reshuffles its ties on every redraw and reads as a bug. Sorting by `name_key` sorts by translation keys rather than by what a player reads; sorting by the displayed name is the game's job, because only the game has the translation.
 
 ## The panel
 
-`DotInvPanel` is a grid with native drag-and-drop through Godot's own `_get_drag_data` / `_can_drop_data` / `_drop_data` (the **engine**, not GameSpice UI, so it works in a project with either), and no art, no `Theme` and no icons. A game sets `icon_resolver` and a `Theme` and the look is theirs.
+`GSInvPanel` is a grid with native drag-and-drop through Godot's own `_get_drag_data` / `_can_drop_data` / `_drop_data` (the **engine**, not GameSpice UI, so it works in a project with either), and no art, no `Theme` and no icons. A game sets `icon_resolver` and a `Theme` and the look is theirs.
 
 The one decision in it: **`_can_drop_data` asks `manager.validate(op)`**, the same call the server will make. A panel with its own idea of what fits will eventually disagree, and the player then sees a move accepted on screen and undone a round trip later.
 

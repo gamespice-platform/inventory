@@ -1,11 +1,11 @@
-class_name DotInvLoadoutLink
+class_name GSInvLoadoutLink
 extends RefCounted
 
 ## The one file in this addon that knows GameSpice Loadout exists, and it does so by duck typing.
 ##
 ## [b]Deliberately one file.[/b] GameSpice NPC AI has the same arrangement with GameSpice NPC — only
 ## one file in it names the other — and the reason is the family's hardest rule: apart from
-## GameSpice Core, nothing may be a hard dependency. Naming `DotLoadoutManager` anywhere in here
+## GameSpice Core, nothing may be a hard dependency. Naming `GSLoadoutManager` anywhere in here
 ## would make this addon fail to parse in a project that does not have it, which is most
 ## projects.
 ##
@@ -18,12 +18,12 @@ extends RefCounted
 ## able to refuse one move without refusing the whole document.
 ##
 ## What crosses between them is a list of ids, in one direction at a time, and what it
-## crosses with is ONE PLAYER'S [code]DotLoadout[/code] -- the document, not the manager:
+## crosses with is ONE PLAYER'S [code]GSLoadout[/code] -- the document, not the manager:
 ##
 ## [codeblock]
-## var active: DotResult = await loadout_manager.active_for(user_key)
+## var active: GSResult = await loadout_manager.active_for(user_key)
 ## var mine = active.value.duplicate_loadout()   # a copy: the manager caches the original
-## var link := DotInvLoadoutLink.of(mine)
+## var link := GSInvLoadoutLink.of(mine)
 ## link.fill_from_loadout(inventory, &"backpack")           # a match starts
 ## ...
 ## link.publish_to_loadout(inventory, &"backpack")          # a match ends
@@ -42,7 +42,7 @@ extends RefCounted
 ## [code]item_in(slot)[/code], [code]count_in(slot, fallback)[/code], [code]set_item[/code]
 ## and [code]clear_slot(slot)[/code]. Those are what this reads and writes.
 ##
-## [b]Saving is not this link's job.[/b] [code]DotLoadoutManager.publish[/code] is GameSpice Loadout's
+## [b]Saving is not this link's job.[/b] [code]GSLoadoutManager.publish[/code] is GameSpice Loadout's
 ## trust boundary -- rate, cap, schema and entitlements -- and a link that wrote the store
 ## itself would be a way round it. The game hands the edited document to publish.
 ##
@@ -53,7 +53,7 @@ extends RefCounted
 const CHANNEL := "inventory"
 
 ## One player's loadout document: anything with [code]filled_slots()[/code] and
-## [code]item_in(slot)[/code] -- GameSpice Loadout's [code]DotLoadout[/code] in practice, which is
+## [code]item_in(slot)[/code] -- GameSpice Loadout's [code]GSLoadout[/code] in practice, which is
 ## not named here. [method publish_to_loadout] also needs [code]clear_slot(slot)[/code].
 var loadout: Object = null
 
@@ -61,8 +61,8 @@ var loadout: Object = null
 var _warned_unusable: bool = false
 
 
-static func of(loadout_doc: Object) -> DotInvLoadoutLink:
-	var l := DotInvLoadoutLink.new()
+static func of(loadout_doc: Object) -> GSInvLoadoutLink:
+	var l := GSInvLoadoutLink.new()
 	l.loadout = loadout_doc
 	return l
 
@@ -86,7 +86,7 @@ func usable() -> bool:
 ## and the honest answer is to say which items were left rather than to silently drop them
 ## or to refuse the whole match start.
 func fill_from_loadout(
-	manager: DotInvManager, container_id: StringName, actor: StringName = &"local"
+	manager: GSInvManager, container_id: StringName, actor: StringName = &"local"
 ) -> PackedStringArray:
 	var missed := PackedStringArray()
 	if not usable():
@@ -97,7 +97,7 @@ func fill_from_loadout(
 
 	for slot in _slot_names():
 		var item_id: Variant = loadout.call("item_in", slot)
-		if item_id == null or DotValue.is_blank(item_id):
+		if item_id == null or GSValue.is_blank(item_id):
 			continue
 		var id := StringName(str(item_id))
 		if not manager.catalogue.has(id):
@@ -108,7 +108,7 @@ func fill_from_loadout(
 			missed.append(String(id))
 			continue
 		var n := maxi(1, int(loadout.call("count_in", slot, 1))) if has_counts else 1
-		var res := manager.apply(DotInvOp.add(id, n, container_id), actor)
+		var res := manager.apply(GSInvOp.add(id, n, container_id), actor)
 		if not res.ok:
 			missed.append(String(id))
 	return missed
@@ -120,12 +120,12 @@ func fill_from_loadout(
 ## [b]Only removal crosses back.[/b] Which slot a newly found item belongs in is the loadout
 ## schema's question (kinds, tags, budgets, entitlements), and this file cannot ask it
 ## without naming GameSpice Loadout. So an item picked up mid-match is left for the game to
-## [code]set_item[/code] if it wants to keep it, and [code]DotLoadoutManager.publish[/code]
+## [code]set_item[/code] if it wants to keep it, and [code]GSLoadoutManager.publish[/code]
 ## then refuses whatever the schema would not have allowed. An id this inventory's catalogue
 ## does not carry is left alone. Two slots holding the same id
 ## need two of it to survive. Counts, positions, rotation and durability are the
 ## inventory's business and do not cross.
-func publish_to_loadout(manager: DotInvManager, container_id: StringName) -> PackedStringArray:
+func publish_to_loadout(manager: GSInvManager, container_id: StringName) -> PackedStringArray:
 	var cleared := PackedStringArray()
 	if not usable() or not loadout.has_method("clear_slot"):
 		_warn_unusable("publish")
@@ -139,7 +139,7 @@ func publish_to_loadout(manager: DotInvManager, container_id: StringName) -> Pac
 	var left := {}
 	for slot in _slot_names():
 		var item_id: Variant = loadout.call("item_in", slot)
-		if item_id == null or DotValue.is_blank(item_id):
+		if item_id == null or GSValue.is_blank(item_id):
 			continue
 		var id := StringName(str(item_id))
 		# An id this catalogue does not carry was never in the bag -- fill reported it as
@@ -178,10 +178,10 @@ func _warn_unusable(what: String) -> void:
 	if _warned_unusable or loadout == null or not is_instance_valid(loadout):
 		return
 	_warned_unusable = true
-	DotLog.warn(CHANNEL, "the loadout link cannot use what it was given; nothing crosses", {
+	GSLog.warn(CHANNEL, "the loadout link cannot use what it was given; nothing crosses", {
 		"during": what,
 		"given": loadout.get_class() if loadout.get_script() == null
 			else String(loadout.get_script().get_global_name()),
-		"needs": "filled_slots(), item_in(slot), clear_slot(slot): one player's DotLoadout",
+		"needs": "filled_slots(), item_in(slot), clear_slot(slot): one player's GSLoadout",
 		"hint": "await loadout_manager.active_for(key) and link its value",
 	})

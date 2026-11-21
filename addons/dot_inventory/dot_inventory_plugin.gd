@@ -10,12 +10,12 @@ const _ICON := "res://addons/dot_inventory/icon_placeholder.svg"
 
 const _TYPES := [
 	[
-		"DotInvManager",
+		"GSInvManager",
 		"Node",
 		"res://addons/dot_inventory/runtime/dot_inv_manager.gd",
 	],
 	[
-		"DotInvPanel",
+		"GSInvPanel",
 		"Control",
 		"res://addons/dot_inventory/runtime/dot_inv_panel.gd",
 	],

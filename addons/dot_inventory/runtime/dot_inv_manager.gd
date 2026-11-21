@@ -1,16 +1,16 @@
-class_name DotInvManager
+class_name GSInvManager
 extends Node
 
 ## The node a game holds. Ops in, a yes or a no out.
 ##
 ## [codeblock]
-## var inv := DotInvManager.new()
+## var inv := GSInvManager.new()
 ## inv.catalogue = my_catalogue
 ## add_child(inv)
 ## inv.setup([&"backpack", &"belt"])
 ##
-## inv.apply(DotInvOp.add(&"rifle_ammo", 60, &"backpack"))
-## inv.apply(DotInvOp.move(&"backpack", uid, &"belt", Vector2i(0, 0)))
+## inv.apply(GSInvOp.add(&"rifle_ammo", 60, &"backpack"))
+## inv.apply(GSInvOp.move(&"backpack", uid, &"belt", Vector2i(0, 0)))
 ## [/codeblock]
 ##
 ## [b]It is server-authoritative by construction, because there is nothing else it could
@@ -24,10 +24,10 @@ const SERVICE := &"dot_inventory"
 const CHANNEL := "inventory"
 
 ## An op was applied. The only signal a view needs.
-signal applied(op: DotInvOp, res: DotResult)
+signal applied(op: GSInvOp, res: GSResult)
 
 ## An op was refused, with the reason.
-signal refused(op: DotInvOp, res: DotResult)
+signal refused(op: GSInvOp, res: GSResult)
 
 ## The whole document was replaced — loaded, or corrected by a server.
 signal reloaded()
@@ -39,9 +39,9 @@ signal reloaded()
 ## that keeps its own record of what is in flight must stop expecting a yes for it, and must
 ## not roll it back when the no arrives: it is no longer applied, and a rollback of an op that
 ## is not there restores the wrong snapshot.
-signal dropped(op: DotInvOp, res: DotResult)
+signal dropped(op: GSInvOp, res: GSResult)
 
-@export var catalogue: DotInvCatalogue = null
+@export var catalogue: GSInvCatalogue = null
 
 ## Whether this instance decides, or predicts and waits.
 ##
@@ -82,27 +82,27 @@ var send_fn: Callable = Callable()
 ## than about the shape.
 var may_apply: Callable = Callable()
 
-var doc: DotInvDoc = null
+var doc: GSInvDoc = null
 
 ## How many snapshots are kept. An unbounded undo history is a memory leak with a plausible
 ## name; a rollback or an authoritative op reaching past the oldest cannot rewind.
 const MAX_HISTORY := 64
 
-var _limiter: DotRateLimiter = null
+var _limiter: GSRateLimiter = null
 var _history: Array[Dictionary] = []
-var _pending: Array[DotInvOp] = []
+var _pending: Array[GSInvOp] = []
 
 
-func setup(root_containers: Array = []) -> DotResult:
+func setup(root_containers: Array = []) -> GSResult:
 	if catalogue == null:
-		return DotResult.fail(DotError.CODE_INVALID, "an inventory with no catalogue")
+		return GSResult.fail(GSError.CODE_INVALID, "an inventory with no catalogue")
 	var res := catalogue.validate()
 	if not res.ok:
 		return res.wrap("inventory catalogue")
 
 	if max_depth < 0:
-		return DotResult.fail(DotError.CODE_INVALID, "max_depth %d is negative" % max_depth, "use 0 for unlimited")
-	doc = DotInvDoc.new()
+		return GSResult.fail(GSError.CODE_INVALID, "max_depth %d is negative" % max_depth, "use 0 for unlimited")
+	doc = GSInvDoc.new()
 	doc.max_depth = max_depth
 	doc._catalogue = catalogue
 
@@ -110,18 +110,18 @@ func setup(root_containers: Array = []) -> DotResult:
 		var key := StringName(str(id))
 		var def := catalogue.container(key)
 		if def.is_empty():
-			return DotResult.fail(
-				DotError.CODE_INVALID, "container '%s' is not declared" % key
+			return GSResult.fail(
+				GSError.CODE_INVALID, "container '%s' is not declared" % key
 			)
-		doc.add_container(DotInvContainer.from_definition(key, def))
+		doc.add_container(GSInvContainer.from_definition(key, def))
 
 	if ops_per_second > 0:
-		_limiter = DotRateLimiter.new(float(ops_per_second), float(ops_per_second))
+		_limiter = GSRateLimiter.new(float(ops_per_second), float(ops_per_second))
 
 	if register_as_service:
-		DotRegistry.register(SERVICE, self)
+		GSRegistry.register(SERVICE, self)
 
-	DotLog.info(
+	GSLog.info(
 		CHANNEL,
 		"inventory ready",
 		{
@@ -131,18 +131,18 @@ func setup(root_containers: Array = []) -> DotResult:
 			"rate": ops_per_second,
 		}
 	)
-	return DotResult.success(null)
+	return GSResult.success(null)
 
 
 func _exit_tree() -> void:
 	if register_as_service:
-		DotRegistry.unregister_instance(SERVICE, self)
+		GSRegistry.unregister_instance(SERVICE, self)
 
 
 # --- Applying ---------------------------------------------------------------
 
 ## Validates and applies an op. The only way anything changes.
-func apply(op: DotInvOp, actor: StringName = &"local") -> DotResult:
+func apply(op: GSInvOp, actor: StringName = &"local") -> GSResult:
 	# Set here, from the caller's own knowledge, never read off the wire. An op that
 	# carries its own actor is an op that can claim to be somebody else.
 	op.actor = actor
@@ -150,15 +150,15 @@ func apply(op: DotInvOp, actor: StringName = &"local") -> DotResult:
 	# Keyed by the actor: one player flooding must not throttle everybody else's
 	# inventory, which is what a single shared bucket does.
 	if _limiter != null and not unlimited_actors.has(actor) and not _limiter.allow(actor):
-		var limited := DotResult.fail(
-			DotError.CODE_RATE_LIMITED, "too many inventory operations"
+		var limited := GSResult.fail(
+			GSError.CODE_RATE_LIMITED, "too many inventory operations"
 		)
 		_note_refusal(op, limited)
 		refused.emit(op, limited)
 		return limited
 
 	if may_apply.is_valid() and not bool(may_apply.call(op, doc)):
-		var vetoed := DotResult.fail(DotError.CODE_FORBIDDEN, "the game refused that")
+		var vetoed := GSResult.fail(GSError.CODE_FORBIDDEN, "the game refused that")
 		_note_refusal(op, vetoed)
 		refused.emit(op, vetoed)
 		return vetoed
@@ -209,12 +209,12 @@ func apply(op: DotInvOp, actor: StringName = &"local") -> DotResult:
 ##
 ## On an authoritative manager it is [method apply] without the limit or the veto — for the
 ## authority's own changes, where the caller is the one deciding.
-func apply_authoritative(op: DotInvOp, actor: StringName = &"server") -> DotResult:
+func apply_authoritative(op: GSInvOp, actor: StringName = &"server") -> GSResult:
 	op.actor = actor
 	var from := _history_index(_pending[0]) if not _pending.is_empty() else -1
 	if _pending.is_empty() or from < 0:
 		if not _pending.is_empty():
-			DotLog.warn(CHANNEL, "an authoritative op arrived with more in flight than is kept; applied on top", {
+			GSLog.warn(CHANNEL, "an authoritative op arrived with more in flight than is kept; applied on top", {
 				"pending": _pending.size(), "kept": _history.size(),
 			})
 		var check := validate(op)
@@ -230,7 +230,7 @@ func apply_authoritative(op: DotInvOp, actor: StringName = &"server") -> DotResu
 		return res
 
 	var rebuilt := _rebuild(from, null, op)
-	var landed: DotResult = rebuilt["extra"]
+	var landed: GSResult = rebuilt["extra"]
 	if landed.ok:
 		applied.emit(op, landed)
 	else:
@@ -246,7 +246,7 @@ func apply_authoritative(op: DotInvOp, actor: StringName = &"server") -> DotResu
 ## part-way through is exactly the case an inverse cannot describe, and this family has the
 ## matching lesson from GameSpice Props: one list used for two purposes meant trimming it for one
 ## purpose silently changed the other.
-func _commit(op: DotInvOp) -> DotResult:
+func _commit(op: GSInvOp) -> GSResult:
 	var before := doc.to_dictionary()
 	var res := _perform(op)
 	if not res.ok:
@@ -255,7 +255,7 @@ func _commit(op: DotInvOp) -> DotResult:
 		# half way through is this addon having got something wrong, not a player having
 		# asked for something silly. Which is why validation has to ask everything the
 		# perform will find out — room included — or an ordinary full bag reads as a bug.
-		DotLog.error(
+		GSLog.error(
 			CHANNEL,
 			"an inventory operation failed after it had been validated",
 			{"actor": op.actor, "op": op.kind, "why": res.error.message}
@@ -278,10 +278,10 @@ func _commit(op: DotInvOp) -> DotResult:
 ## It is still logged, because the question it answers is asked often and cannot be
 ## answered any other way: "where did my item go". Turn the channel up for one server —
 ## [code]log channel inventory debug[/code] — rather than leaving it up everywhere.
-func _note_refusal(op: DotInvOp, res: DotResult) -> void:
-	if not DotLog.enabled(DotLog.Level.DEBUG, CHANNEL):
+func _note_refusal(op: GSInvOp, res: GSResult) -> void:
+	if not GSLog.enabled(GSLog.Level.DEBUG, CHANNEL):
 		return
-	DotLog.debug(
+	GSLog.debug(
 		CHANNEL,
 		"inventory operation refused",
 		{
@@ -294,23 +294,23 @@ func _note_refusal(op: DotInvOp, res: DotResult) -> void:
 
 
 ## Checks an op without applying it. What a view greys a slot out with.
-func validate(op: DotInvOp) -> DotResult:
+func validate(op: GSInvOp) -> GSResult:
 	match op.kind:
-		DotInvOp.Kind.ADD:
+		GSInvOp.Kind.ADD:
 			return _validate_add(op)
-		DotInvOp.Kind.MOVE:
+		GSInvOp.Kind.MOVE:
 			return _validate_move(op)
-		DotInvOp.Kind.SPLIT:
+		GSInvOp.Kind.SPLIT:
 			return _validate_split(op)
-		DotInvOp.Kind.MERGE:
+		GSInvOp.Kind.MERGE:
 			return _validate_merge(op)
-		DotInvOp.Kind.DROP, DotInvOp.Kind.USE:
+		GSInvOp.Kind.DROP, GSInvOp.Kind.USE:
 			return _validate_take(op)
 		_:
-			return DotResult.fail(DotError.CODE_UNSUPPORTED, "that operation is not implemented")
+			return GSResult.fail(GSError.CODE_UNSUPPORTED, "that operation is not implemented")
 
 
-func _container(id: StringName) -> DotInvContainer:
+func _container(id: StringName) -> GSInvContainer:
 	return doc.get_container(id)
 
 
@@ -319,36 +319,36 @@ func _entry(container_id: StringName, uid: int) -> Dictionary:
 	return {} if c == null else c.entries.get(uid, {})
 
 
-func _validate_add(op: DotInvOp) -> DotResult:
+func _validate_add(op: GSInvOp) -> GSResult:
 	var item := catalogue.find(op.item)
 	if item == null:
-		return DotResult.fail(DotError.CODE_INVALID, "no such item '%s'" % op.item)
+		return GSResult.fail(GSError.CODE_INVALID, "no such item '%s'" % op.item)
 	var c := _container(op.to_container)
 	if c == null:
-		return DotResult.fail(DotError.CODE_INVALID, "no such container '%s'" % op.to_container)
+		return GSResult.fail(GSError.CODE_INVALID, "no such container '%s'" % op.to_container)
 	if op.count < 1:
-		return DotResult.fail(DotError.CODE_INVALID, "adding %d of something" % op.count)
+		return GSResult.fail(GSError.CODE_INVALID, "adding %d of something" % op.count)
 	if not c.within_weight(item.weight * float(op.count), catalogue, doc):
-		return DotResult.fail(DotError.CODE_QUOTA, "'%s' is too heavy for that" % op.item)
+		return GSResult.fail(GSError.CODE_QUOTA, "'%s' is too heavy for that" % op.item)
 	return c.room_for_add(item, op.count, op.to_cell, op.to_rotated, catalogue)
 
 
-func _validate_move(op: DotInvOp) -> DotResult:
+func _validate_move(op: GSInvOp) -> GSResult:
 	var from := _container(op.from_container)
 	var to := _container(op.to_container)
 	if from == null or to == null:
-		return DotResult.fail(DotError.CODE_INVALID, "no such container")
+		return GSResult.fail(GSError.CODE_INVALID, "no such container")
 	var entry := _entry(op.from_container, op.from_uid)
 	if entry.is_empty():
-		return DotResult.fail(DotError.CODE_STATE, "there is nothing there to move")
+		return GSResult.fail(GSError.CODE_STATE, "there is nothing there to move")
 
 	var item := catalogue.find(StringName(str(entry.get("item", ""))))
 	if item == null:
-		return DotResult.fail(DotError.CODE_INVALID, "that item is not in the catalogue")
+		return GSResult.fail(GSError.CODE_INVALID, "that item is not in the catalogue")
 
 	# The nesting test comes before the fit test, because a cycle that has been created
 	# cannot be detected by anything that has to walk the structure to find it.
-	if item.kind == DotInvItem.Kind.CONTAINER:
+	if item.kind == GSInvItem.Kind.CONTAINER:
 		var child := StringName(str(entry.get("child", "")))
 		if child != &"":
 			var nest := doc.can_nest(child, op.to_container)
@@ -365,79 +365,79 @@ func _validate_move(op: DotInvOp) -> DotResult:
 
 	if op.from_container != op.to_container:
 		var w := item.weight * float(entry.get("count", 1))
-		if item.kind == DotInvItem.Kind.CONTAINER:
+		if item.kind == GSInvItem.Kind.CONTAINER:
 			w += doc.weight_of(StringName(str(entry.get("child", ""))))
 		if not to.within_weight(w, catalogue, doc):
-			return DotResult.fail(DotError.CODE_QUOTA, "that is too heavy for '%s'" % to.id)
-	return DotResult.success(null)
+			return GSResult.fail(GSError.CODE_QUOTA, "that is too heavy for '%s'" % to.id)
+	return GSResult.success(null)
 
 
-func _validate_split(op: DotInvOp) -> DotResult:
+func _validate_split(op: GSInvOp) -> GSResult:
 	var entry := _entry(op.from_container, op.from_uid)
 	if entry.is_empty():
-		return DotResult.fail(DotError.CODE_STATE, "there is nothing there to split")
+		return GSResult.fail(GSError.CODE_STATE, "there is nothing there to split")
 	var have := int(entry.get("count", 1))
 	if op.count < 1 or op.count >= have:
-		return DotResult.fail(
-			DotError.CODE_INVALID,
+		return GSResult.fail(
+			GSError.CODE_INVALID,
 			"splitting %d off a stack of %d" % [op.count, have],
 			"a split that takes the whole stack is a move, and the two are not the same op"
 		)
 	var item := catalogue.find(StringName(str(entry.get("item", ""))))
 	if item == null or item.stack_max <= 1:
-		return DotResult.fail(DotError.CODE_INVALID, "that does not stack")
+		return GSResult.fail(GSError.CODE_INVALID, "that does not stack")
 	var to := _container(op.to_container)
 	if to == null:
-		return DotResult.fail(DotError.CODE_INVALID, "no such container")
+		return GSResult.fail(GSError.CODE_INVALID, "no such container")
 	return to.fits(item, op.to_cell, op.to_rotated, catalogue)
 
 
-func _validate_merge(op: DotInvOp) -> DotResult:
+func _validate_merge(op: GSInvOp) -> GSResult:
 	var a := _entry(op.from_container, op.from_uid)
 	var b := _entry(op.to_container, op.to_uid)
 	if a.is_empty() or b.is_empty():
-		return DotResult.fail(DotError.CODE_STATE, "one of those is not there")
+		return GSResult.fail(GSError.CODE_STATE, "one of those is not there")
 	if op.from_container == op.to_container and op.from_uid == op.to_uid:
-		return DotResult.fail(DotError.CODE_INVALID, "merging a stack with itself")
+		return GSResult.fail(GSError.CODE_INVALID, "merging a stack with itself")
 	if str(a.get("item", "")) != str(b.get("item", "")):
-		return DotResult.fail(DotError.CODE_INVALID, "those are different items")
+		return GSResult.fail(GSError.CODE_INVALID, "those are different items")
 	var item := catalogue.find(StringName(str(a.get("item", ""))))
 	if item == null or item.stack_max <= 1:
-		return DotResult.fail(DotError.CODE_INVALID, "that does not stack")
+		return GSResult.fail(GSError.CODE_INVALID, "that does not stack")
 	if int(b.get("count", 1)) >= item.stack_max:
-		return DotResult.fail(DotError.CODE_QUOTA, "that stack is already full")
-	return DotResult.success(null)
+		return GSResult.fail(GSError.CODE_QUOTA, "that stack is already full")
+	return GSResult.success(null)
 
 
-func _validate_take(op: DotInvOp) -> DotResult:
+func _validate_take(op: GSInvOp) -> GSResult:
 	var entry := _entry(op.from_container, op.from_uid)
 	if entry.is_empty():
-		return DotResult.fail(DotError.CODE_STATE, "there is nothing there")
+		return GSResult.fail(GSError.CODE_STATE, "there is nothing there")
 	var have := int(entry.get("count", 1))
 	if op.count > have:
-		return DotResult.fail(
-			DotError.CODE_INVALID, "there are only %d of those" % have
+		return GSResult.fail(
+			GSError.CODE_INVALID, "there are only %d of those" % have
 		)
-	return DotResult.success(null)
+	return GSResult.success(null)
 
 
-func _perform(op: DotInvOp) -> DotResult:
+func _perform(op: GSInvOp) -> GSResult:
 	match op.kind:
-		DotInvOp.Kind.ADD:
+		GSInvOp.Kind.ADD:
 			return _do_add(op)
-		DotInvOp.Kind.MOVE:
+		GSInvOp.Kind.MOVE:
 			return _do_move(op)
-		DotInvOp.Kind.SPLIT:
+		GSInvOp.Kind.SPLIT:
 			return _do_split(op)
-		DotInvOp.Kind.MERGE:
+		GSInvOp.Kind.MERGE:
 			return _do_merge(op)
-		DotInvOp.Kind.DROP, DotInvOp.Kind.USE:
+		GSInvOp.Kind.DROP, GSInvOp.Kind.USE:
 			return _do_take(op)
 		_:
-			return DotResult.fail(DotError.CODE_UNSUPPORTED, "not implemented")
+			return GSResult.fail(GSError.CODE_UNSUPPORTED, "not implemented")
 
 
-func _do_add(op: DotInvOp) -> DotResult:
+func _do_add(op: GSInvOp) -> GSResult:
 	var item := catalogue.find(op.item)
 	var c := _container(op.to_container)
 	var remaining := op.count
@@ -473,11 +473,11 @@ func _do_add(op: DotInvOp) -> DotResult:
 			var spot := c.first_fit(item, catalogue)
 			if not bool(spot.get("ok", false)):
 				if made.is_empty() and remaining == op.count:
-					return DotResult.fail(DotError.CODE_QUOTA, "there is no room for that")
+					return GSResult.fail(GSError.CODE_QUOTA, "there is no room for that")
 				# A partial add is reported as a success carrying what did not fit, not
 				# as a failure -- a pickup that half worked has half worked, and rolling
 				# it back to take the other half away is worse for everybody.
-				return DotResult.success({"added": op.count - remaining, "left": remaining})
+				return GSResult.success({"added": op.count - remaining, "left": remaining})
 			cell = spot["cell"]
 			rotated = bool(spot["rotated"])
 		var fit := c.fits(item, cell, rotated, catalogue)
@@ -494,14 +494,14 @@ func _do_add(op: DotInvOp) -> DotResult:
 		named = Vector2i(-1, -1)
 
 	_open_containers_for(c, made)
-	return DotResult.success({"added": op.count, "left": 0})
+	return GSResult.success({"added": op.count, "left": 0})
 
 
-func _open_containers_for(c: DotInvContainer, uids: Array[int]) -> void:
+func _open_containers_for(c: GSInvContainer, uids: Array[int]) -> void:
 	for uid in uids:
 		var e: Dictionary = c.entries.get(uid, {})
 		var item := catalogue.find(StringName(str(e.get("item", ""))))
-		if item == null or item.kind != DotInvItem.Kind.CONTAINER:
+		if item == null or item.kind != GSInvItem.Kind.CONTAINER:
 			continue
 		var def := catalogue.container(item.container_id)
 		if def.is_empty():
@@ -511,7 +511,7 @@ func _open_containers_for(c: DotInvContainer, uids: Array[int]) -> void:
 			e["child"] = String(res.value)
 
 
-func _do_move(op: DotInvOp) -> DotResult:
+func _do_move(op: GSInvOp) -> GSResult:
 	var from := _container(op.from_container)
 	var to := _container(op.to_container)
 	var entry := from.entries.get(op.from_uid, {})
@@ -537,10 +537,10 @@ func _do_move(op: DotInvOp) -> DotResult:
 	var child := StringName(str(moved.get("child", "")))
 	if child != &"" and doc.parents.has(child):
 		doc.parents[child] = {"parent": op.to_container, "uid": uid}
-	return DotResult.success(uid)
+	return GSResult.success(uid)
 
 
-func _do_split(op: DotInvOp) -> DotResult:
+func _do_split(op: GSInvOp) -> GSResult:
 	var from := _container(op.from_container)
 	var to := _container(op.to_container)
 	var entry: Dictionary = from.entries[op.from_uid]
@@ -552,10 +552,10 @@ func _do_split(op: DotInvOp) -> DotResult:
 		"rotated": op.to_rotated,
 		"state": (entry.get("state", {}) as Dictionary).duplicate(true),
 	})
-	return DotResult.success(uid)
+	return GSResult.success(uid)
 
 
-func _do_merge(op: DotInvOp) -> DotResult:
+func _do_merge(op: GSInvOp) -> GSResult:
 	var from := _container(op.from_container)
 	var to := _container(op.to_container)
 	var a: Dictionary = from.entries[op.from_uid]
@@ -573,10 +573,10 @@ func _do_merge(op: DotInvOp) -> DotResult:
 		# a stack of twenty onto one with room for five should move five, which is what
 		# every player expects and what a whole-or-nothing merge refuses to do.
 		a["count"] = left
-	return DotResult.success({"merged": take, "left": left})
+	return GSResult.success({"merged": take, "left": left})
 
 
-func _do_take(op: DotInvOp) -> DotResult:
+func _do_take(op: GSInvOp) -> GSResult:
 	var from := _container(op.from_container)
 	var entry: Dictionary = from.entries[op.from_uid]
 	var have := int(entry.get("count", 1))
@@ -588,7 +588,7 @@ func _do_take(op: DotInvOp) -> DotResult:
 		from.remove_entry(op.from_uid)
 	else:
 		entry["count"] = have - take
-	return DotResult.success(take)
+	return GSResult.success(take)
 
 
 ## Removes a container and everything inside it.
@@ -632,15 +632,15 @@ func _remove_subtree(id: StringName) -> void:
 ## the server ACCEPTED and undo that instead. On an authoritative manager, which has no
 ## pending list, the newest match in the history is undone — what this has always done there.
 func rollback(op_dict: Dictionary) -> Array[Dictionary]:
-	var target: DotInvOp = null
+	var target: GSInvOp = null
 	for i in range(_pending.size()):
-		if DotValue.same_dictionary(_pending[i].to_dictionary(), op_dict):
+		if GSValue.same_dictionary(_pending[i].to_dictionary(), op_dict):
 			target = _pending[i]
 			_pending.remove_at(i)
 			break
 	if target == null and authoritative:
 		for j in range(_history.size() - 1, -1, -1):
-			if DotValue.same_dictionary(_history[j]["op"].to_dictionary(), op_dict):
+			if GSValue.same_dictionary(_history[j]["op"].to_dictionary(), op_dict):
 				target = _history[j]["op"]
 				break
 	var out: Array[Dictionary] = []
@@ -650,7 +650,7 @@ func rollback(op_dict: Dictionary) -> Array[Dictionary]:
 	if at < 0:
 		# Older than every kept snapshot. Nothing can be restored, and the caller's copy now
 		# disagrees with the server's until it is sent the whole document.
-		DotLog.warn(CHANNEL, "a rollback reached past the kept history; the document needs replacing", {
+		GSLog.warn(CHANNEL, "a rollback reached past the kept history; the document needs replacing", {
 			"kept": _history.size(),
 		})
 		return out
@@ -673,17 +673,17 @@ func rollback(op_dict: Dictionary) -> Array[Dictionary]:
 ## Re-applied directly, not through [method apply]: they were limited and vetoed once, they
 ## must not be sent again, and a rate limit that refused a client's own replays is how a
 ## correction turned into a second one (measured in game-playlot).
-func _rebuild(from: int, skip: DotInvOp, extra: DotInvOp) -> Dictionary:
-	var tail: Array[DotInvOp] = []
+func _rebuild(from: int, skip: GSInvOp, extra: GSInvOp) -> Dictionary:
+	var tail: Array[GSInvOp] = []
 	for k in range(from, _history.size()):
-		var op: DotInvOp = _history[k]["op"]
+		var op: GSInvOp = _history[k]["op"]
 		if op != skip:
 			tail.append(op)
 	doc.adopt(_history[from]["before"], catalogue)
 	_history.resize(from)
 
-	var decided: Array[DotInvOp] = []
-	var predicted: Array[DotInvOp] = []
+	var decided: Array[GSInvOp] = []
+	var predicted: Array[GSInvOp] = []
 	for op in tail:
 		if _pending.has(op):
 			predicted.append(op)
@@ -696,11 +696,11 @@ func _rebuild(from: int, skip: DotInvOp, extra: DotInvOp) -> Dictionary:
 		if not res.ok:
 			# Something the server decided no longer applies here. This copy has diverged,
 			# and only the server's document can say how.
-			DotLog.warn(CHANNEL, "a decided inventory op no longer applies after a rewind", {
+			GSLog.warn(CHANNEL, "a decided inventory op no longer applies after a rewind", {
 				"op": op.kind, "why": res.error.message if res.error != null else "",
 			})
 
-	var extra_res := DotResult.success(null)
+	var extra_res := GSResult.success(null)
 	if extra != null:
 		extra_res = _reapply(extra)
 
@@ -714,7 +714,7 @@ func _rebuild(from: int, skip: DotInvOp, extra: DotInvOp) -> Dictionary:
 	return {"extra": extra_res, "dropped": dropped_dicts}
 
 
-func _reapply(op: DotInvOp) -> DotResult:
+func _reapply(op: GSInvOp) -> GSResult:
 	var check := validate(op)
 	if not check.ok:
 		return check
@@ -725,7 +725,7 @@ func _reapply(op: DotInvOp) -> DotResult:
 ##
 ## By identity, because two ops can be the same dictionary ("drop one of #3", twice) and
 ## matching by content is how a rewind picks the wrong one of them.
-func _history_index(op: DotInvOp) -> int:
+func _history_index(op: GSInvOp) -> int:
 	for k in range(_history.size() - 1, -1, -1):
 		if _history[k]["op"] == op:
 			return k
@@ -734,7 +734,7 @@ func _history_index(op: DotInvOp) -> int:
 
 func confirm(op_dict: Dictionary) -> void:
 	for i in range(_pending.size()):
-		if DotValue.same_dictionary(_pending[i].to_dictionary(), op_dict):
+		if GSValue.same_dictionary(_pending[i].to_dictionary(), op_dict):
 			_pending.remove_at(i)
 			return
 
@@ -749,7 +749,7 @@ func to_dictionary() -> Dictionary:
 	return doc.to_dictionary()
 
 
-func adopt(d: Dictionary) -> DotResult:
+func adopt(d: Dictionary) -> GSResult:
 	var res := doc.adopt(d, catalogue)
 	if res.ok:
 		_pending.clear()

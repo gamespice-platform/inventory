@@ -4,7 +4,7 @@ Bugs worth recognising if they come back. The lessons that still apply are rules
 
 ## The link spoke to a fake
 
-`DotInvLoadoutLink` once duck-typed against `slots()` and `set_items()`, which nothing in GameSpice Loadout has: it worked only against the self-test's own fake. It now uses the document's real methods, and the self-test runs it against the real GameSpice Loadout ([design](design.md#the-link-takes-one-players-dotloadout-not-the-dotloadoutmanager)). A duck-typed seam tested only against a fake of itself proves nothing.
+`GSInvLoadoutLink` once duck-typed against `slots()` and `set_items()`, which nothing in GameSpice Loadout has: it worked only against the self-test's own fake. It now uses the document's real methods, and the self-test runs it against the real GameSpice Loadout ([design](design.md#the-link-takes-one-players-dotloadout-not-the-dotloadoutmanager)). A duck-typed seam tested only against a fake of itself proves nothing.
 
 ## What building it found
 

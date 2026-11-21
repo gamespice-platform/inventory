@@ -1,5 +1,5 @@
 @tool
-class_name DotInvCatalogue
+class_name GSInvCatalogue
 extends Resource
 
 ## Every item and every container shape a game has, as a document.
@@ -8,7 +8,7 @@ extends Resource
 ## as GameSpice Loadout's schema and GameSpice User Avatar's. What that buys is that a typo in an item
 ## id fails a start-up rather than producing an empty slot in a firefight.
 
-@export var items: Array[DotInvItem] = []
+@export var items: Array[GSInvItem] = []
 
 ## Container shapes, by id: [code]{width, height, slots, weight_cap, accepts}[/code].
 ##
@@ -20,14 +20,14 @@ extends Resource
 var _by_id: Dictionary = {}
 
 
-func add(item: DotInvItem) -> DotInvCatalogue:
+func add(item: GSInvItem) -> GSInvCatalogue:
 	items.append(item)
 	_by_id.clear()
 	return self
 
 
 ## Declares a grid container: w by h cells.
-func add_grid(id: StringName, w: int, h: int, weight_cap: float = 0.0) -> DotInvCatalogue:
+func add_grid(id: StringName, w: int, h: int, weight_cap: float = 0.0) -> GSInvCatalogue:
 	containers[id] = {
 		"kind": "grid", "width": w, "height": h, "weight_cap": weight_cap, "accepts": []
 	}
@@ -37,14 +37,14 @@ func add_grid(id: StringName, w: int, h: int, weight_cap: float = 0.0) -> DotInv
 ## Declares a slot container: [param count] slots, each accepting [param accepts].
 func add_slots(
 	id: StringName, count: int, accepts: Array = [], weight_cap: float = 0.0
-) -> DotInvCatalogue:
+) -> GSInvCatalogue:
 	containers[id] = {
 		"kind": "slots", "slots": count, "weight_cap": weight_cap, "accepts": accepts
 	}
 	return self
 
 
-func find(id: StringName) -> DotInvItem:
+func find(id: StringName) -> GSInvItem:
 	_ensure_index()
 	return _by_id.get(id)
 
@@ -79,26 +79,26 @@ func _ensure_index() -> void:
 			_by_id[i.id] = i
 
 
-func validate() -> DotResult:
+func validate() -> GSResult:
 	var seen := {}
 	for i in items:
 		if i == null:
-			return DotResult.fail(DotError.CODE_INVALID, "a null item in the catalogue")
+			return GSResult.fail(GSError.CODE_INVALID, "a null item in the catalogue")
 		var res := i.validate()
 		if not res.ok:
 			return res
 		if seen.has(i.id):
-			return DotResult.fail(
-				DotError.CODE_INVALID,
+			return GSResult.fail(
+				GSError.CODE_INVALID,
 				"item id '%s' appears twice" % i.id,
 				"the second one is unreachable and nothing would ever say so"
 			)
 		seen[i.id] = true
 
 	for i in items:
-		if i.kind == DotInvItem.Kind.CONTAINER and not containers.has(i.container_id):
-			return DotResult.fail(
-				DotError.CODE_INVALID,
+		if i.kind == GSInvItem.Kind.CONTAINER and not containers.has(i.container_id):
+			return GSResult.fail(
+				GSError.CODE_INVALID,
 				"'%s' opens into container '%s', which is not declared" % [i.id, i.container_id]
 			)
 
@@ -107,19 +107,19 @@ func validate() -> DotResult:
 		var kind := str(c.get("kind", ""))
 		if kind == "grid":
 			if int(c.get("width", 0)) < 1 or int(c.get("height", 0)) < 1:
-				return DotResult.fail(
-					DotError.CODE_INVALID, "container '%s' has no cells" % key
+				return GSResult.fail(
+					GSError.CODE_INVALID, "container '%s' has no cells" % key
 				)
 		elif kind == "slots":
 			if int(c.get("slots", 0)) < 1:
-				return DotResult.fail(
-					DotError.CODE_INVALID, "container '%s' has no slots" % key
+				return GSResult.fail(
+					GSError.CODE_INVALID, "container '%s' has no slots" % key
 				)
 		else:
-			return DotResult.fail(
-				DotError.CODE_INVALID, "container '%s' is neither a grid nor slots" % key
+			return GSResult.fail(
+				GSError.CODE_INVALID, "container '%s' is neither a grid nor slots" % key
 			)
-	return DotResult.success(null)
+	return GSResult.success(null)
 
 
 func describe_lines() -> PackedStringArray:

@@ -1,4 +1,4 @@
-class_name DotInvContainer
+class_name GSInvContainer
 extends RefCounted
 
 ## One place things go: a grid of cells, or a list of slots.
@@ -38,8 +38,8 @@ var accepts: Array[StringName] = []
 var _next_uid: int = 1
 
 
-static func from_definition(p_id: StringName, d: Dictionary) -> DotInvContainer:
-	var c := DotInvContainer.new()
+static func from_definition(p_id: StringName, d: Dictionary) -> GSInvContainer:
+	var c := GSInvContainer.new()
 	c.id = p_id
 	if str(d.get("kind", "grid")) == "slots":
 		c.shape = Shape.SLOTS
@@ -62,7 +62,7 @@ func capacity() -> int:
 # --- Occupancy --------------------------------------------------------------
 
 ## The cells an entry covers. Derived from the entry, never stored beside it.
-func cells_of(entry: Dictionary, catalogue: DotInvCatalogue) -> Array[Vector2i]:
+func cells_of(entry: Dictionary, catalogue: GSInvCatalogue) -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
 	if shape == Shape.SLOTS:
 		out.append(entry.get("cell", Vector2i.ZERO))
@@ -84,12 +84,12 @@ func cells_of(entry: Dictionary, catalogue: DotInvCatalogue) -> Array[Vector2i]:
 ## item would otherwise collide with itself, and the obvious fix — remove then place — is
 ## the one that loses the item when the place half fails.
 func fits(
-	item: DotInvItem,
+	item: GSInvItem,
 	cell: Vector2i,
 	rotated: bool,
-	catalogue: DotInvCatalogue,
+	catalogue: GSInvCatalogue,
 	ignore_uid: int = 0
-) -> DotResult:
+) -> GSResult:
 	if not accepts.is_empty():
 		var allowed := false
 		for t in accepts:
@@ -97,24 +97,24 @@ func fits(
 				allowed = true
 				break
 		if not allowed:
-			return DotResult.fail(
-				DotError.CODE_FORBIDDEN, "'%s' does not belong in '%s'" % [item.id, id]
+			return GSResult.fail(
+				GSError.CODE_FORBIDDEN, "'%s' does not belong in '%s'" % [item.id, id]
 			)
 
 	if shape == Shape.SLOTS:
 		if cell.x < 0 or cell.x >= slots:
-			return DotResult.fail(DotError.CODE_INVALID, "slot %d is outside '%s'" % [cell.x, id])
+			return GSResult.fail(GSError.CODE_INVALID, "slot %d is outside '%s'" % [cell.x, id])
 		for uid in entries.keys():
 			if uid == ignore_uid:
 				continue
 			if Vector2i(entries[uid].get("cell", Vector2i.ZERO)).x == cell.x:
-				return DotResult.fail(DotError.CODE_STATE, "slot %d is taken" % cell.x)
-		return DotResult.success(null)
+				return GSResult.fail(GSError.CODE_STATE, "slot %d is taken" % cell.x)
+		return GSResult.success(null)
 
 	var fp := item.footprint(rotated)
 	if cell.x < 0 or cell.y < 0 or cell.x + fp.x > width or cell.y + fp.y > height:
-		return DotResult.fail(
-			DotError.CODE_INVALID,
+		return GSResult.fail(
+			GSError.CODE_INVALID,
 			"'%s' does not fit inside '%s' at %d,%d" % [item.id, id, cell.x, cell.y]
 		)
 
@@ -122,15 +122,15 @@ func fits(
 	for y in range(fp.y):
 		for x in range(fp.x):
 			if taken.has(cell + Vector2i(x, y)):
-				return DotResult.fail(
-					DotError.CODE_STATE,
+				return GSResult.fail(
+					GSError.CODE_STATE,
 					"something is already at %d,%d" % [cell.x + x, cell.y + y]
 				)
-	return DotResult.success(null)
+	return GSResult.success(null)
 
 
 ## Every occupied cell, derived from the entries.
-func occupied_cells(catalogue: DotInvCatalogue, ignore_uid: int = 0) -> Dictionary:
+func occupied_cells(catalogue: GSInvCatalogue, ignore_uid: int = 0) -> Dictionary:
 	var out := {}
 	for uid in entries.keys():
 		if uid == ignore_uid:
@@ -146,7 +146,7 @@ func occupied_cells(catalogue: DotInvCatalogue, ignore_uid: int = 0) -> Dictiona
 ## than after a whole failed pass. Both are deliberate: it is what a player expects
 ## ("it went to the first empty space"), and it is deterministic, which means a server and
 ## a client that both auto-place agree without exchanging anything.
-func first_fit(item: DotInvItem, catalogue: DotInvCatalogue) -> Dictionary:
+func first_fit(item: GSInvItem, catalogue: GSInvCatalogue) -> Dictionary:
 	if shape == Shape.SLOTS:
 		for s in range(slots):
 			if fits(item, Vector2i(s, 0), false, catalogue).ok:
@@ -171,7 +171,7 @@ func first_fit(item: DotInvItem, catalogue: DotInvCatalogue) -> Dictionary:
 ## Recursive on purpose and bounded by the schema's depth, because the alternative — a
 ## bag whose weight does not count what is in it — is the exploit every game with nested
 ## containers has shipped at least once.
-func total_weight(catalogue: DotInvCatalogue, doc: Object = null) -> float:
+func total_weight(catalogue: GSInvCatalogue, doc: Object = null) -> float:
 	var sum := 0.0
 	for uid in entries.keys():
 		var e: Dictionary = entries[uid]
@@ -179,12 +179,12 @@ func total_weight(catalogue: DotInvCatalogue, doc: Object = null) -> float:
 		if item == null:
 			continue
 		sum += item.weight * float(e.get("count", 1))
-		if item.kind == DotInvItem.Kind.CONTAINER and doc != null and doc.has_method("weight_of"):
+		if item.kind == GSInvItem.Kind.CONTAINER and doc != null and doc.has_method("weight_of"):
 			sum += float(doc.call("weight_of", e.get("child", &"")))
 	return sum
 
 
-func within_weight(added: float, catalogue: DotInvCatalogue, doc: Object = null) -> bool:
+func within_weight(added: float, catalogue: GSInvCatalogue, doc: Object = null) -> bool:
 	if weight_cap <= 0.0:
 		return true
 	return total_weight(catalogue, doc) + added <= weight_cap + 0.0001
@@ -222,7 +222,7 @@ func remove_entry(uid: int) -> Dictionary:
 	return e
 
 
-func entry_at(cell: Vector2i, catalogue: DotInvCatalogue) -> int:
+func entry_at(cell: Vector2i, catalogue: GSInvCatalogue) -> int:
 	var taken := occupied_cells(catalogue)
 	return int(taken.get(cell, 0))
 
@@ -270,7 +270,7 @@ func adopt(d: Dictionary) -> void:
 	_next_uid = maxi(1, int(d.get("next_uid", 1)))
 
 
-func describe_lines(catalogue: DotInvCatalogue) -> PackedStringArray:
+func describe_lines(catalogue: GSInvCatalogue) -> PackedStringArray:
 	var out := PackedStringArray()
 	var where := "%dx%d" % [width, height] if shape == Shape.GRID else "%d slots" % slots
 	out.append("%s (%s) %d entries, %.2f kg%s" % [
@@ -294,16 +294,16 @@ func describe_lines(catalogue: DotInvCatalogue) -> PackedStringArray:
 	return out
 
 
-## Whether an ADD of [param count] fits, asked exactly as [method DotInvManager._do_add] places
+## Whether an ADD of [param count] fits, asked exactly as [method GSInvManager._do_add] places
 ## it: existing stacks are topped up first, a named [param cell] must take the first new stack,
 ## otherwise first-fit; topping up or placing anything is a (partial) success, never a refusal.
 func room_for_add(
-	item: DotInvItem,
+	item: GSInvItem,
 	count: int,
 	cell: Vector2i,
 	rotated: bool,
-	catalogue: DotInvCatalogue
-) -> DotResult:
+	catalogue: GSInvCatalogue
+) -> GSResult:
 	var topup := 0
 	if item.stack_max > 1:
 		for uid in entries.keys():
@@ -311,11 +311,11 @@ func room_for_add(
 			if str(e.get("item", "")) == String(item.id):
 				topup += maxi(0, item.stack_max - int(e.get("count", 1)))
 	if topup >= count:
-		return DotResult.success(null)
+		return GSResult.success(null)
 	if cell.x >= 0 and cell.y >= 0:
 		return fits(item, cell, rotated, catalogue)
 	if topup > 0:
-		return DotResult.success(null)
+		return GSResult.success(null)
 	if not bool(first_fit(item, catalogue).get("ok", false)):
-		return DotResult.fail(DotError.CODE_QUOTA, "there is no room in '%s' for '%s'" % [id, item.id])
-	return DotResult.success(null)
+		return GSResult.fail(GSError.CODE_QUOTA, "there is no room in '%s' for '%s'" % [id, item.id])
+	return GSResult.success(null)

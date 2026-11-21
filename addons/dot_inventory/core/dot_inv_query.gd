@@ -1,5 +1,5 @@
 @tool
-class_name DotInvQuery
+class_name GSInvQuery
 extends RefCounted
 
 ## Sorting and filtering, applied locally and never by a server.
@@ -11,10 +11,10 @@ extends RefCounted
 ## inventory; the client owns how it is shown.
 ##
 ## [codeblock]
-## var q := DotInvQuery.new()
+## var q := GSInvQuery.new()
 ## q.text = "rifle"
 ## q.tags = [&"weapon"]
-## q.sort_by = DotInvQuery.Sort.WEIGHT
+## q.sort_by = GSInvQuery.Sort.WEIGHT
 ## for hit in q.run(manager.doc, catalogue):
 ##     ...
 ## [/codeblock]
@@ -45,14 +45,14 @@ var descending: bool = false
 
 
 ## Returns [code]{container, uid, item, entry}[/code] for everything that matches.
-func run(doc: DotInvDoc, catalogue: DotInvCatalogue) -> Array[Dictionary]:
+func run(doc: GSInvDoc, catalogue: GSInvCatalogue) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	var needle := text.to_lower()
 
 	for container_id in doc.ordered_ids():
 		if not containers.is_empty() and not containers.has(container_id):
 			continue
-		var c: DotInvContainer = doc.get_container(container_id)
+		var c: GSInvContainer = doc.get_container(container_id)
 		for uid in c.entries.keys():
 			var entry: Dictionary = c.entries[uid]
 			var item := catalogue.find(StringName(str(entry.get("item", ""))))
@@ -83,8 +83,8 @@ func run(doc: DotInvDoc, catalogue: DotInvCatalogue) -> Array[Dictionary]:
 
 
 func _comparator(a: Dictionary, b: Dictionary) -> bool:
-	var ia: DotInvItem = a["item"]
-	var ib: DotInvItem = b["item"]
+	var ia: GSInvItem = a["item"]
+	var ib: GSInvItem = b["item"]
 	match sort_by:
 		Sort.WEIGHT:
 			var wa := ia.weight * float((a["entry"] as Dictionary).get("count", 1))
