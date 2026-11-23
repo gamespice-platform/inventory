@@ -6,8 +6,11 @@
 #   ln -s ../../<repo>/addons/<addon> addons/<addon>
 # gs-core is the one dependency. gs-loadout is linked only so the self-test can run
 # GSInvLoadoutLink against the real document; the addon itself never names it.
+# gs-cloud and gs-save are gs-loadout's own dependencies, which that test loads too.
 /addons/gs_core
 /addons/gs_loadout
+/addons/gs_cloud
+/addons/gs_save
 
 # Exports
 build/
