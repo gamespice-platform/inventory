@@ -2,7 +2,7 @@
 
 An inventory that a server can check: grids, stacks, weight, equipment slots and bags inside bags. Every change is an operation the server can accept or refuse one at a time.
 
-Part of the [**GameSpice**](https://gamespice.net) collection: modular, MIT-licensed building blocks for games on the GameSpice platform (only the TMC website back end is closed). It was built with Claude Code and its headless suite passes, but little of it has met real players yet, so expect rough edges and please report what you find.
+A [GameSpice](https://gamespice.net) addon, MIT licensed, built with Claude Code, with a headless suite in `examples/inventory_selftest.tscn`. It is used for real: the games in [Zee's Games](https://zeesgames.com) are built on the GameSpice addons and run on live servers.
 
 ## Install
 
@@ -56,6 +56,14 @@ inv.apply_authoritative(server_op)   # a change the server made: a purchase, a r
 godot --headless --path . --import
 godot --headless --path . res://examples/inventory_selftest.tscn
 ```
+
+## Used by
+
+These games include it:
+
+- [Playlot](https://zeesgames.com/playlot) - the player's backpack and equipment, kept in `playlot_inventory.gd`
+
+The whole collection is at [zeesgames.com](https://zeesgames.com).
 
 ## Licence
 
